@@ -49,6 +49,7 @@ It is architected following clean separation of concerns, defensive programming 
 - **`wifi.py`**: 802.11 wireless airwave inspection, access point classification (Wi-Fi 4/5/6/7, WPA2/WPA3, WEP), and RF spectrum channel congestion and cleanest channel evaluation engine for 2.4 GHz and 5 GHz bands.
 - **`bandwidth.py`**: Real-time interface bandwidth measurement, throughput rates (RX/TX in B/s, KB/s, MB/s, GB/s), packet flow counters, and error/drop tracking.
 - **`spf.py`**: Educational OSPF Link-State Database (LSDB) Dijkstra Shortest Path First calculation engine, priority-queue step tracer, dynamic link failure simulation, and routing table convergence generator.
+- **`vendor_manager.py`**: Non-destructive multi-vendor hardware discovery engine covering IP surveillance cameras (Hikvision, Dahua, ONVIF/RTSP), outdoor wireless CPEs (TP-Link Pharos, Ubiquiti airMAX), MikroTik RouterBOARD/RouterOS (MNDP), and Linux/Ubuntu servers.
 
 ### 2.3 Security (`src/itsa_network_os/security/`)
 - **`validator.py`**: Strict input validation for IP addresses, CIDR blocks, hostnames, ports, and file paths to prevent injection or invalid state execution.
@@ -61,7 +62,7 @@ It is architected following clean separation of concerns, defensive programming 
 
 ### 2.5 UI (`src/itsa_network_os/ui/`)
 - **`cli.py`**: Standard terminal UI with clean tables, structured headers, and exit codes suitable for scripting and pipelines.
-- **`desktop/`**: Modern PySide6 desktop dashboard featuring 13 interactive tabs with dark glassmorphic styling:
+- **`desktop/`**: Modern PySide6 desktop dashboard featuring 14 interactive tabs with dark glassmorphic styling:
   1. System Overview & Health
   2. CIDR Subnet Calculator
   3. Network Interfaces
@@ -75,6 +76,7 @@ It is architected following clean separation of concerns, defensive programming 
   11. Live Bandwidth & Traffic Flow Monitor
   12. TLS / SSL Cryptographic & Certificate Inspector
   13. OSPF / Dijkstra Shortest Path First Simulator
+  14. Multi-Vendor Hardware & IP Surveillance Camera Manager
 
 ## 3. Security & Safety Guarantees
 - **Least Privilege**: Application runs strictly as an unprivileged user (`non-root`).

@@ -131,6 +131,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Simulate link failure to evaluate dynamic OSPF re-convergence (e.g. R1-R2)",
     )
     parser.add_argument(
+        "--vendor-scan",
+        action="store_true",
+        help="Scan and inventory multi-vendor hardware (MikroTik, Ubiquiti, TP-Link CPE, ONVIF Cameras)",
+    )
+    parser.add_argument(
+        "--cams",
+        action="store_true",
+        help="Filter specifically for IP surveillance cameras, RTSP streams, and ONVIF specifications",
+    )
+    parser.add_argument(
+        "--vendor",
+        type=str,
+        default=None,
+        help="Filter discovered devices by vendor or category (e.g. mikrotik, ubiquiti, tplink, camera, linux)",
+    )
+    parser.add_argument(
         "--band",
         choices=["2.4ghz", "5ghz"],
         default="2.4ghz",
@@ -183,6 +199,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         or args.bandwidth
         or args.tls
         or args.spf
+        or args.vendor_scan
+        or args.cams
     )
     if not has_command:
         TerminalFormatter.print_banner()
@@ -327,6 +345,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_spf_simulation(spf_result)
+            return 0
+
+        if args.vendor_scan or args.cams:
+            filter_cat = "camera" if args.cams else args.vendor
+            vendor_report = app.discover_vendor_devices(category=filter_cat, force_live=args.live)
+            if args.json:
+                print(ReportExporter.to_json(vendor_report.to_dict()))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_vendor_discovery(vendor_report)
             return 0
 
     except (SecurityValidationError, SubnetCalculationError) as exc:

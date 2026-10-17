@@ -31,7 +31,7 @@ class TestDesktopGUI(unittest.TestCase):
             app = Application(config=AppConfig(database_file=":memory:"))
             window = MainWindow(app)
 
-            self.assertEqual(window.pages_stack.count(), 13)
+            self.assertEqual(window.pages_stack.count(), 14)
             self.assertIn("ITSA Network OS", window.windowTitle())
 
             # Test subnet calculate trigger in GUI
@@ -72,6 +72,13 @@ class TestDesktopGUI(unittest.TestCase):
             window.spf_widget.run_simulation("R2", "R2-R4")
             self.assertEqual(window.spf_widget.current_result.source_router, "R2")
             self.assertEqual(window.spf_widget.current_result.failed_link_id, "R2-R4")
+
+            # Test Multi-Vendor & Cameras widget on page 13 (index 13)
+            self.assertTrue(hasattr(window, "vendor_widget"))
+            self.assertGreater(len(window.vendor_widget.all_devices), 0)
+            self.assertGreater(window.vendor_widget.devices_table.rowCount(), 0)
+            window.vendor_widget._on_filter_clicked(None)
+            self.assertEqual(len(window.vendor_widget.current_filtered_devices), 8)
 
         except ImportError:
             self.skipTest("PySide6 not available for GUI test")

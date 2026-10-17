@@ -80,6 +80,7 @@ class MainWindow(QMainWindow):  # type: ignore
             ("📈 Bandwidth & Flow", self._create_bandwidth_page),
             ("🔒 TLS & SSL Security", self._create_tls_page),
             ("🔀 OSPF & Dijkstra SPF", self._create_spf_page),
+            ("📹 Multi-Vendor & Cameras", self._create_vendor_page),
         ]
 
         self.pages_stack = QStackedWidget()
@@ -599,6 +600,19 @@ class MainWindow(QMainWindow):  # type: ignore
         layout.setContentsMargins(0, 0, 0, 0)
         self.spf_widget = SPFSimulatorWidget(self)
         layout.addWidget(self.spf_widget)
+        return page
+
+    # =========================================================================
+    # Page 14: Multi-Vendor Hardware & IP Surveillance Device Manager
+    # =========================================================================
+    def _create_vendor_page(self) -> QWidget:
+        from itsa_network_os.ui.desktop.vendor_canvas import VendorDeviceManagerWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.vendor_widget = VendorDeviceManagerWidget(self)
+        layout.addWidget(self.vendor_widget)
         return page
 
     # =========================================================================

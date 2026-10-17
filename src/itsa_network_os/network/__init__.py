@@ -53,6 +53,16 @@ from itsa_network_os.network.spf import (
     SPFSimulationResult,
     SPFSimulatorEngine,
 )
+from itsa_network_os.network.vendor_manager import (
+    CameraTelemetry,
+    DeviceCategory,
+    DeviceSecurityStatus,
+    ManagedDevice,
+    RouterOSTelemetry,
+    VendorDiscoveryReport,
+    VendorManagerEngine,
+    WirelessLinkTelemetry,
+)
 
 __all__ = [
     "InterfaceState",
@@ -99,4 +109,12 @@ __all__ = [
     "SPFRouteEntry",
     "SPFSimulationResult",
     "SPFSimulatorEngine",
+    "CameraTelemetry",
+    "DeviceCategory",
+    "DeviceSecurityStatus",
+    "ManagedDevice",
+    "RouterOSTelemetry",
+    "VendorDiscoveryReport",
+    "VendorManagerEngine",
+    "WirelessLinkTelemetry",
 ]

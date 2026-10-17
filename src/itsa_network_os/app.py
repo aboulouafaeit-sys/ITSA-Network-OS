@@ -22,6 +22,11 @@ from itsa_network_os.network.wifi import (
 )
 from itsa_network_os.network.bandwidth import BandwidthRate, TrafficMonitorEngine
 from itsa_network_os.network.spf import SPFSimulationResult, SPFSimulatorEngine
+from itsa_network_os.network.vendor_manager import (
+    DeviceCategory,
+    VendorDiscoveryReport,
+    VendorManagerEngine,
+)
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
 from itsa_network_os.security.lab import EducationalPacketLab, ParsedPacket
 from itsa_network_os.security.tls import TLSInspectionReport, TLSInspectorEngine
@@ -179,3 +184,25 @@ class Application:
             failed_link,
         )
         return SPFSimulatorEngine.calculate_spf(source_id=sanitized_source, failed_link_id=failed_link)
+
+    def discover_vendor_devices(
+        self, category: Optional[str] = None, force_live: bool = False
+    ) -> VendorDiscoveryReport:
+        """Discover and inspect multi-vendor hardware (MikroTik, Ubiquiti, TP-Link CPE, ONVIF Cameras)."""
+        cat_enum: Optional[DeviceCategory] = None
+        if category:
+            cat_lower = category.lower().strip()
+            if "cam" in cat_lower or "cctv" in cat_lower:
+                cat_enum = DeviceCategory.IP_CAMERA
+            elif "mikro" in cat_lower or "routeros" in cat_lower:
+                cat_enum = DeviceCategory.MIKROTIK
+            elif "ubnt" in cat_lower or "ubiquiti" in cat_lower or "unifi" in cat_lower:
+                cat_enum = DeviceCategory.UBIQUITI
+            elif "tp" in cat_lower or "cpe" in cat_lower or "pharos" in cat_lower:
+                cat_enum = DeviceCategory.TPLINK_CPE
+            elif "linux" in cat_lower or "ubuntu" in cat_lower or "srv" in cat_lower:
+                cat_enum = DeviceCategory.LINUX_SERVER
+
+        use_mock = self.config.use_mock_network and not force_live
+        self.logger.info("Executing multi-vendor device discovery (filter=%s, mock=%s)", cat_enum, use_mock)
+        return VendorManagerEngine.discover_devices(category_filter=cat_enum, use_mock=use_mock)

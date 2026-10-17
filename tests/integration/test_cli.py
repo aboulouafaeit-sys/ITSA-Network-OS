@@ -275,6 +275,40 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertIn("Failover Re-converged", stdout_buf.getvalue())
         self.assertIn("R1-R2", stdout_buf.getvalue())
 
+    def test_cli_vendor_scan(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--vendor-scan"])
+        self.assertEqual(code, 0)
+        self.assertIn("Multi-Vendor Network Hardware", stdout_buf.getvalue())
+        self.assertIn("Hikvision", stdout_buf.getvalue())
+        self.assertIn("MikroTik", stdout_buf.getvalue())
+
+    def test_cli_vendor_scan_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--vendor-scan", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertEqual(output["total_devices"], 8)
+        self.assertIsInstance(output["devices"], list)
+
+    def test_cli_cams(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--cams"])
+        self.assertEqual(code, 0)
+        self.assertIn("Total Discovered Devices: 2", stdout_buf.getvalue())
+        self.assertIn("rtsp://", stdout_buf.getvalue())
+
+    def test_cli_vendor_filter(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--vendor-scan", "--vendor", "mikrotik"])
+        self.assertEqual(code, 0)
+        self.assertIn("Total Discovered Devices: 2", stdout_buf.getvalue())
+        self.assertIn("RouterOS", stdout_buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

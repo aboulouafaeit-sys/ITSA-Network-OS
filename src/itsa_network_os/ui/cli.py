@@ -15,6 +15,7 @@ from itsa_network_os.network.wifi import AccessPointInfo, ChannelCongestionRepor
 from itsa_network_os.security.auditor import SecurityAuditReport
 from itsa_network_os.security.lab import ParsedPacket
 from itsa_network_os.network.spf import SPFSimulationResult
+from itsa_network_os.network.vendor_manager import VendorDiscoveryReport
 from itsa_network_os.security.tls import TLSInspectionReport
 
 
@@ -315,5 +316,57 @@ class TerminalFormatter:
             tent_str = ", ".join(f"{k}:{v}" for k, v in s.tentative_distances.items()) or "(none)"
             print(f" [Step {s.step_number:02d}] Node: {s.current_node:<3} | Confirmed: [{conf_str}] | Tentative: [{tent_str}]")
             print(f"           Explanation: {s.explanation}")
+        print("=====================================================================================================\n")
+
+    @staticmethod
+    def print_vendor_discovery(report: VendorDiscoveryReport) -> None:
+        """Render multi-vendor hardware inventory and IP surveillance camera diagnostics."""
+        print("\n=====================================================================================================")
+        print("          Multi-Vendor Network Hardware & IP Surveillance Device Inventory (Read-Only)               ")
+        print("=====================================================================================================")
+        print(f" Total Discovered Devices: {report.total_devices}")
+        counts_str = " | ".join(f"{k}: {v}" for k, v in report.category_counts.items())
+        print(f" Category Breakdown      : {counts_str}")
+        if report.vulnerable_device_count > 0:
+            print(f" Security Advisories     : [!] {report.vulnerable_device_count} device(s) have warnings or default credentials!")
+
+        print("\n-----------------------------------------------------------------------------------------------------")
+        print(f" {'ID':<7} | {'Device Name':<26} | {'Vendor':<12} | {'Category':<22} | {'IP Address':<15} | {'Status'}")
+        print("-----------------------------------------------------------------------------------------------------")
+        for d in report.devices:
+            print(
+                f" {d.device_id:<7} | {d.name:<26} | {d.vendor:<12} | {d.category.value:<22} | "
+                f"{d.ip_address:<15} | {d.security_status.value}"
+            )
+        print("-----------------------------------------------------------------------------------------------------")
+
+        # Render specialized detail highlights
+        print("\n --- Device Telemetry & Profile Highlights ---")
+        for d in report.devices:
+            print(f"\n • [{d.device_id}] {d.name} ({d.vendor} {d.model}) - IP: {d.ip_address} | MAC: {d.mac_address}")
+            print(f"   Firmware / OS: {d.firmware_version} (via {d.discovery_protocol})")
+
+            if d.camera_info:
+                cam = d.camera_info
+                print(f"   [CCTV] RTSP URI   : {cam.rtsp_uri}")
+                print(f"   [CCTV] Spec       : {cam.resolution} @ {cam.fps}fps ({cam.codec}) | ONVIF Port: {cam.onvif_port}")
+                if cam.has_default_credentials:
+                    print("   [!] ALERT: Factory default credentials active! Change immediately.")
+
+            if d.wireless_info:
+                w = d.wireless_info
+                print(f"   [PtP] Wireless    : {w.wireless_mode} on {w.frequency_mhz} MHz ({w.channel_width_mhz} MHz)")
+                print(f"   [PtP] Signal/CCQ  : RSSI {w.signal_rssi_dbm} dBm | Noise {w.noise_floor_dbm} dBm | SNR {w.snr_db} dB | CCQ {w.ccq_percent}%")
+                print(f"   [PtP] Link Speed  : TX {w.tx_rate_mbps} Mbps / RX {w.rx_rate_mbps} Mbps | Distance: {w.distance_km} km")
+
+            if d.router_info:
+                r = d.router_info
+                print(f"   [RouterOS] Board  : {r.board_name} ({r.architecture}) | Uptime: {r.uptime_str}")
+                print(f"   [RouterOS] Health : CPU Load: {r.cpu_load_percent}% | Free RAM: {r.free_memory_mb} MB | Interfaces: {r.active_interfaces}")
+
+            if d.security_notes:
+                for note in d.security_notes:
+                    print(f"   [*] Advisory      : {note}")
+
         print("=====================================================================================================\n")
 

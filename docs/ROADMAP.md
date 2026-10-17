@@ -35,6 +35,7 @@
 - [x] **Track 3: Live Bandwidth & Traffic Flow Monitor (`BandwidthMonitorWidget`, `TrafficMonitorEngine`)**: Real-time throughput graph (RX/TX in KB/s and MB/s), packet counters, and transmission velocity.
 - [x] **Track 4: TLS / SSL Cryptographic Inspector (`TLSInspectorWidget`, `TLSInspectorEngine`)**: Non-destructive TLS client handshake, X.509 certificate trust chain inspection, cipher suite auditing (flagging weak 3DES/RC4 and TLS 1.0/1.1), days-to-expiry tracking, and cryptographic posture scoring.
 - [x] **Track 5: Routing Protocol & Dijkstra SPF Simulator (`SPFSimulatorWidget`, `SPFSimulatorEngine`)**: Step-by-step OSPF Link-State Database (LSDB) shortest-path-first visualizer, mathematical relaxation trace, dynamic link failure simulation, and routing convergence.
+- [x] **Track 6: Multi-Vendor Hardware & IP Surveillance Camera Manager (`VendorDeviceManagerWidget`, `VendorDiscoveryEngine`)**: Non-destructive discovery of IP cameras (Hikvision, Dahua, ONVIF/RTSP), outdoor wireless CPEs (TP-Link Pharos, Ubiquiti airMAX), MikroTik RouterBOARD/RouterOS (MNDP), and Linux/Ubuntu servers with security auditing (default credential checks, outdated firmware alerts, stream URL extraction).
 
 ## Debian Live OS Distribution Recipe (Complete)
 - [x] Debian 13 (Trixie) live-build recipe and configuration (`debian-live/auto/config`).
