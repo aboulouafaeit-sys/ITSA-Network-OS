@@ -21,6 +21,7 @@ from itsa_network_os.network.wifi import (
     WirelessSpectrumAnalyzer,
 )
 from itsa_network_os.network.bandwidth import BandwidthRate, TrafficMonitorEngine
+from itsa_network_os.network.spf import SPFSimulationResult, SPFSimulatorEngine
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
 from itsa_network_os.security.lab import EducationalPacketLab, ParsedPacket
 from itsa_network_os.security.tls import TLSInspectionReport, TLSInspectorEngine
@@ -166,3 +167,15 @@ class Application:
         use_mock = self.config.use_mock_network and not force_live
         self.logger.info("Executing TLS inspection for %s:%d (mock=%s)", sanitized_host, sanitized_port, use_mock)
         return TLSInspectorEngine.inspect(host=sanitized_host, port=sanitized_port, use_mock=use_mock)
+
+    def simulate_spf(
+        self, source: str = "R1", failed_link: Optional[str] = None
+    ) -> SPFSimulationResult:
+        """Run educational Dijkstra SPF shortest-path link-state calculation."""
+        sanitized_source = InputValidator.validate_interface_name(source) if source else "R1"
+        self.logger.info(
+            "Simulating OSPF Dijkstra SPF tree from root '%s' (failed_link=%s)",
+            sanitized_source,
+            failed_link,
+        )
+        return SPFSimulatorEngine.calculate_spf(source_id=sanitized_source, failed_link_id=failed_link)

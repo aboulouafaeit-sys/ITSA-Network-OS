@@ -34,7 +34,7 @@
 - [x] **Track 2: Wi-Fi Inspection & Wireless Spectrum Analysis (`WifiSpectrumWidget`, `WirelessSpectrumAnalyzer`)**: Non-destructive 802.11 airwave scanner, RF bell-curve spectrum visualizer (2.4/5 GHz), co-channel interference calculator, and WEP/Open security audit.
 - [x] **Track 3: Live Bandwidth & Traffic Flow Monitor (`BandwidthMonitorWidget`, `TrafficMonitorEngine`)**: Real-time throughput graph (RX/TX in KB/s and MB/s), packet counters, and transmission velocity.
 - [x] **Track 4: TLS / SSL Cryptographic Inspector (`TLSInspectorWidget`, `TLSInspectorEngine`)**: Non-destructive TLS client handshake, X.509 certificate trust chain inspection, cipher suite auditing (flagging weak 3DES/RC4 and TLS 1.0/1.1), days-to-expiry tracking, and cryptographic posture scoring.
-- [ ] **Track 5: Routing Protocol & Dijkstra SPF Simulator**: Step-by-step shortest path SPF link-state visualizer.
+- [x] **Track 5: Routing Protocol & Dijkstra SPF Simulator (`SPFSimulatorWidget`, `SPFSimulatorEngine`)**: Step-by-step OSPF Link-State Database (LSDB) shortest-path-first visualizer, mathematical relaxation trace, dynamic link failure simulation, and routing convergence.
 
 ## Debian Live OS Distribution Recipe (Complete)
 - [x] Debian 13 (Trixie) live-build recipe and configuration (`debian-live/auto/config`).

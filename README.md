@@ -7,7 +7,8 @@ ITSA Network OS is designed for network administrators, security engineers, and 
 ---
 
 ## Key Features
-- **Professional Desktop GUI**: Modern, dark glassmorphic desktop interface powered by PySide6 with 12 integrated tabs.
+- **Professional Desktop GUI**: Modern, dark glassmorphic desktop interface powered by PySide6 with 13 integrated tabs.
+- **OSPF / Dijkstra Shortest Path First (SPF) Simulator**: Step-by-step Link-State Database (LSDB) shortest-path-first visualizer, mathematical relaxation trace, dynamic link failure simulation, and routing convergence.
 - **TLS / SSL Cryptographic Inspector**: Non-destructive TLS client handshake, X.509 certificate chain validation, cipher suite auditing (flagging weak 3DES/RC4/CBC and TLS 1.0/1.1), days-to-expiry tracking, and security posture scoring.
 - **Live Bandwidth & Traffic Flow Monitor**: Real-time dual-stream area chart (RX/TX in KB/s and MB/s), packet counters, and adapter drop/error tracking.
 - **Wi-Fi Spectrum & Wireless Signal Analysis**: Non-destructive 802.11 airwave scanner, RF parabolic curve spectrum visualizer (2.4/5 GHz), co-channel interference calculator, and WEP/Open security audit.
@@ -46,6 +47,11 @@ itsa-network-os --gui
 
 #### CLI Diagnostics & Analysis Commands:
 ```bash
+# Simulate OSPF Dijkstra Shortest Path First routing calculation
+itsa-network-os --spf --source R1
+itsa-network-os --spf --source R1 --fail-link R1-R2
+itsa-network-os --spf --json
+
 # Inspect TLS/SSL certificates and cryptographic posture
 itsa-network-os --tls cloudflare.com
 itsa-network-os --tls example.com --port 443 --json

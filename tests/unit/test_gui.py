@@ -31,7 +31,7 @@ class TestDesktopGUI(unittest.TestCase):
             app = Application(config=AppConfig(database_file=":memory:"))
             window = MainWindow(app)
 
-            self.assertEqual(window.pages_stack.count(), 12)
+            self.assertEqual(window.pages_stack.count(), 13)
             self.assertIn("ITSA Network OS", window.windowTitle())
 
             # Test subnet calculate trigger in GUI
@@ -64,6 +64,14 @@ class TestDesktopGUI(unittest.TestCase):
             self.assertGreater(window.tls_widget.findings_table.rowCount(), 0)
             window.tls_widget.inspect_target("legacy.internal", 443)
             self.assertEqual(window.tls_widget.current_report.negotiated_protocol, "TLSv1.0")
+
+            # Test OSPF SPF Simulator widget on page 12 (index 12)
+            self.assertTrue(hasattr(window, "spf_widget"))
+            self.assertIsNotNone(window.spf_widget.current_result)
+            self.assertGreater(window.spf_widget.table_routes.rowCount(), 0)
+            window.spf_widget.run_simulation("R2", "R2-R4")
+            self.assertEqual(window.spf_widget.current_result.source_router, "R2")
+            self.assertEqual(window.spf_widget.current_result.failed_link_id, "R2-R4")
 
         except ImportError:
             self.skipTest("PySide6 not available for GUI test")

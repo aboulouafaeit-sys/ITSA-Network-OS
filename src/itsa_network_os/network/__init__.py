@@ -44,6 +44,15 @@ from itsa_network_os.network.wifi import (
     WifiStandard,
     WirelessSpectrumAnalyzer,
 )
+from itsa_network_os.network.spf import (
+    DijkstraStep,
+    LinkStatus,
+    SPFLink,
+    SPFRouteEntry,
+    SPFRouterNode,
+    SPFSimulationResult,
+    SPFSimulatorEngine,
+)
 
 __all__ = [
     "InterfaceState",
@@ -83,4 +92,11 @@ __all__ = [
     "TrafficMonitorEngine",
     "format_bytes_rate",
     "format_total_bytes",
+    "LinkStatus",
+    "SPFRouterNode",
+    "SPFLink",
+    "DijkstraStep",
+    "SPFRouteEntry",
+    "SPFSimulationResult",
+    "SPFSimulatorEngine",
 ]

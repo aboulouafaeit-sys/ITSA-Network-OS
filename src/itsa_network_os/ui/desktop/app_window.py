@@ -79,6 +79,7 @@ class MainWindow(QMainWindow):  # type: ignore
             ("📡 Wi-Fi & Spectrum", self._create_wifi_page),
             ("📈 Bandwidth & Flow", self._create_bandwidth_page),
             ("🔒 TLS & SSL Security", self._create_tls_page),
+            ("🔀 OSPF & Dijkstra SPF", self._create_spf_page),
         ]
 
         self.pages_stack = QStackedWidget()
@@ -585,6 +586,19 @@ class MainWindow(QMainWindow):  # type: ignore
         layout.setContentsMargins(0, 0, 0, 0)
         self.tls_widget = TLSInspectorWidget(self)
         layout.addWidget(self.tls_widget)
+        return page
+
+    # =========================================================================
+    # Page 13: OSPF / Dijkstra Shortest Path First Simulator
+    # =========================================================================
+    def _create_spf_page(self) -> QWidget:
+        from itsa_network_os.ui.desktop.spf_canvas import SPFSimulatorWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.spf_widget = SPFSimulatorWidget(self)
+        layout.addWidget(self.spf_widget)
         return page
 
     # =========================================================================

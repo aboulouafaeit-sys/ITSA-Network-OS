@@ -247,6 +247,34 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("Error:", stderr_buf.getvalue())
 
+    def test_cli_spf(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--spf", "--source", "R1"])
+        self.assertEqual(code, 0)
+        self.assertIn("OSPF Dijkstra Shortest Path First", stdout_buf.getvalue())
+        self.assertIn("Root: R1", stdout_buf.getvalue())
+        self.assertIn("Optimal SPF Tree Converged", stdout_buf.getvalue())
+
+    def test_cli_spf_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--spf", "--source", "R1", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertEqual(output["source_router"], "R1")
+        self.assertIsInstance(output["routes"], list)
+        self.assertGreaterEqual(len(output["routes"]), 5)
+        self.assertIn("steps", output)
+
+    def test_cli_spf_fail_link(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--spf", "--source", "R1", "--fail-link", "R1-R2"])
+        self.assertEqual(code, 0)
+        self.assertIn("Failover Re-converged", stdout_buf.getvalue())
+        self.assertIn("R1-R2", stdout_buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

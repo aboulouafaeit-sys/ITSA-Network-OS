@@ -14,6 +14,7 @@ from itsa_network_os.network.routes import RouteEntry
 from itsa_network_os.network.wifi import AccessPointInfo, ChannelCongestionReport
 from itsa_network_os.security.auditor import SecurityAuditReport
 from itsa_network_os.security.lab import ParsedPacket
+from itsa_network_os.network.spf import SPFSimulationResult
 from itsa_network_os.security.tls import TLSInspectionReport
 
 
@@ -283,4 +284,36 @@ class TerminalFormatter:
             for rec in report.recommendations:
                 print(f"    [*] {rec}")
         print("===============================================================================\n")
+
+    @staticmethod
+    def print_spf_simulation(result: SPFSimulationResult) -> None:
+        """Render OSPF Link-State and Dijkstra Shortest Path First simulation results."""
+        print("\n=====================================================================================================")
+        print(f"             OSPF Dijkstra Shortest Path First (SPF) Routing Engine [Root: {result.source_router}]            ")
+        print("=====================================================================================================")
+        print(f" Convergence Status : {result.convergence_status}")
+        print(f" Calculation Time   : {result.convergence_time_ms} ms")
+        if result.failed_link_id:
+            print(f" Severed Link       : [!] {result.failed_link_id} (Simulated Link Down)")
+        if result.unreachable_nodes:
+            print(f" Unreachable Nodes  : [!] {', '.join(result.unreachable_nodes)} (Partitioned Network)")
+
+        print("\n --- Computed OSPF Shortest-Path Routing Table ---")
+        print(f" {'Dest':<6} | {'Subnet':<15} | {'Cost':<6} | {'Next-Hop':<9} | {'Next-Hop IP':<15} | {'Interface':<12} | {'Shortest Path'}")
+        print("-----------------------------------------------------------------------------------------------------")
+        for r in result.routes:
+            path_str = " -> ".join(r.full_path)
+            print(
+                f" {r.destination_node:<6} | {r.destination_subnet:<15} | {r.total_cost:<6} | "
+                f"{r.next_hop_router:<9} | {r.next_hop_ip:<15} | {r.outgoing_interface:<12} | {path_str}"
+            )
+        print("-----------------------------------------------------------------------------------------------------")
+
+        print("\n --- Step-by-Step Dijkstra Execution Trace ---")
+        for s in result.steps:
+            conf_str = ", ".join(f"{k}:{v}" for k, v in s.confirmed_tree.items()) or "(none)"
+            tent_str = ", ".join(f"{k}:{v}" for k, v in s.tentative_distances.items()) or "(none)"
+            print(f" [Step {s.step_number:02d}] Node: {s.current_node:<3} | Confirmed: [{conf_str}] | Tentative: [{tent_str}]")
+            print(f"           Explanation: {s.explanation}")
+        print("=====================================================================================================\n")
 

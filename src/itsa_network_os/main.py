@@ -113,6 +113,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="Sample real-time network adapter throughput rates, bandwidth, and packet counters",
     )
     parser.add_argument(
+        "--spf",
+        action="store_true",
+        help="Simulate OSPF Dijkstra Shortest Path First (SPF) routing table calculation and link-state convergence",
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default="R1",
+        help="Root router identifier for SPF tree calculation (default: R1)",
+    )
+    parser.add_argument(
+        "--fail-link",
+        type=str,
+        default=None,
+        metavar="LINK_ID",
+        help="Simulate link failure to evaluate dynamic OSPF re-convergence (e.g. R1-R2)",
+    )
+    parser.add_argument(
         "--band",
         choices=["2.4ghz", "5ghz"],
         default="2.4ghz",
@@ -164,6 +182,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         or args.wifi_spectrum
         or args.bandwidth
         or args.tls
+        or args.spf
     )
     if not has_command:
         TerminalFormatter.print_banner()
@@ -299,6 +318,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_tls_inspection(tls_report)
+            return 0
+
+        if args.spf:
+            spf_result = app.simulate_spf(source=args.source, failed_link=args.fail_link)
+            if args.json:
+                print(ReportExporter.to_json(spf_result.to_dict()))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_spf_simulation(spf_result)
             return 0
 
     except (SecurityValidationError, SubnetCalculationError) as exc:
