@@ -162,6 +162,45 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertIn("links", output)
         self.assertGreater(len(output["nodes"]), 0)
 
+    def test_cli_wifi_scan(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--wifi-scan"])
+        self.assertEqual(code, 0)
+        self.assertIn("Discovered Wi-Fi Access Points", stdout_buf.getvalue())
+        self.assertIn("ITSA-Corp-Secure", stdout_buf.getvalue())
+
+    def test_cli_wifi_scan_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--wifi-scan", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertIsInstance(output, list)
+        self.assertGreaterEqual(len(output), 5)
+        self.assertEqual(output[0]["ssid"], "ITSA-Corp-Secure")
+
+    def test_cli_wifi_spectrum_2_4ghz(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--wifi-spectrum"])
+        self.assertEqual(code, 0)
+        self.assertIn("Wireless Spectrum Analysis", stdout_buf.getvalue())
+        self.assertIn("2.4 GHz", stdout_buf.getvalue())
+        self.assertIn("CH 1", stdout_buf.getvalue())
+
+    def test_cli_wifi_spectrum_5ghz_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--wifi-spectrum", "--band", "5ghz", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertIsInstance(output, list)
+        self.assertGreaterEqual(len(output), 15)
+        channels = [item["channel"] for item in output]
+        self.assertIn(36, channels)
+        self.assertIn(149, channels)
+
 
 if __name__ == "__main__":
     unittest.main()

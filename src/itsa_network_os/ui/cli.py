@@ -10,6 +10,7 @@ from itsa_network_os.network.dns import DNSDiagnosticResult
 from itsa_network_os.network.latency import LatencyBenchmarkResult
 from itsa_network_os.network.models import NetworkInterface, SubnetCalculationResult
 from itsa_network_os.network.routes import RouteEntry
+from itsa_network_os.network.wifi import AccessPointInfo, ChannelCongestionReport
 from itsa_network_os.security.auditor import SecurityAuditReport
 from itsa_network_os.security.lab import ParsedPacket
 
@@ -175,5 +176,50 @@ class TerminalFormatter:
         print("\nInterconnect Topology Links:")
         for l in topology.links:
             print(f"  • [{l.source_id}] <--- {l.speed_mbps} Mbps ({l.latency_ms} ms) ---> [{l.target_id}] ({l.status})")
+        print("===============================================================================\n")
+
+    @staticmethod
+    def print_wifi_scan(access_points: List[AccessPointInfo]) -> None:
+        """Render table of discovered Wi-Fi access points and security warnings."""
+        print("\n=====================================================================================================")
+        print("               Discovered Wi-Fi Access Points & Security Profiles (Read-Only)                        ")
+        print("=====================================================================================================")
+        print(f" Discovered APs: {len(access_points)}\n")
+        print(f" {'SSID':<24} | {'BSSID':<18} | {'RSSI':<8} | {'Signal':<14} | {'CH':<4} | {'Width':<7} | {'Security'}")
+        print("-----------------------------------------------------------------------------------------------------")
+        for ap in access_points:
+            # Render a 6-block signal bar
+            bars = int(ap.signal_percent / 16.6)
+            bar_str = "[" + "#" * bars + "-" * (6 - bars) + "]"
+            signal_disp = f"{bar_str} {ap.signal_percent}%"
+            print(
+                f" {ap.ssid:<24} | {ap.bssid:<18} | {ap.rssi_dbm} dBm | {signal_disp:<14} | "
+                f"{ap.channel:<4} | {ap.channel_width_mhz} MHz | {ap.security.value}"
+            )
+            if ap.security_warnings:
+                for w in ap.security_warnings:
+                    print(f"   [!] SECURITY WARNING: {w}")
+        print("=====================================================================================================\n")
+
+    @staticmethod
+    def print_wifi_spectrum(reports: List[ChannelCongestionReport], band_name: str = "2.4 GHz") -> None:
+        """Render RF channel spectrum congestion and optimization recommendations."""
+        print("\n===============================================================================")
+        print(f"         Wireless Spectrum Analysis & RF Channel Congestion ({band_name})       ")
+        print("===============================================================================")
+        print(f"\n {'Channel':<8} | {'Freq (MHz)':<11} | {'AP Count':<9} | {'Max RSSI':<9} | {'Congestion':<11} | {'Recommendation'}")
+        print("-------------------------------------------------------------------------------")
+        for r in reports:
+            max_rssi_str = f"{r.strongest_rssi_dbm} dBm" if r.strongest_rssi_dbm > -100 else "Quiet"
+            rec_str = "⭐ RECOMMENDED" if r.recommended else ("AVOID (Overcrowded)" if r.congestion_level in ("HIGH", "SEVERE") else "Acceptable")
+            print(
+                f" CH {r.channel:<5} | {r.frequency_mhz:<11} | {r.ap_count:<9} | "
+                f"{max_rssi_str:<9} | {r.congestion_level:<11} | {rec_str}"
+            )
+        print("-------------------------------------------------------------------------------")
+
+        recommended_channels = [str(r.channel) for r in reports if r.recommended]
+        if recommended_channels:
+            print(f"  Best Operating Channels for {band_name}: Channels {', '.join(recommended_channels)}")
         print("===============================================================================\n")
 

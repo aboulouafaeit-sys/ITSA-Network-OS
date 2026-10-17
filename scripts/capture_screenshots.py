@@ -38,6 +38,7 @@ def capture_all() -> None:
         (6, "packet_protocol_lab.png"),
         (7, "routing_table.png"),
         (8, "network_topology.png"),
+        (9, "wifi_spectrum_analyzer.png"),
     ]
 
     for index, filename in tabs:

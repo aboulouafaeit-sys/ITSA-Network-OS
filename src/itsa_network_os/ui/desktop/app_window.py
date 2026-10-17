@@ -76,6 +76,7 @@ class MainWindow(QMainWindow):  # type: ignore
             ("🔬 Packet Protocol Lab", self._create_lab_page),
             ("🗺️ Routing Table", self._create_routes_page),
             ("🌐 Topology Visualizer", self._create_topology_page),
+            ("📡 Wi-Fi & Spectrum", self._create_wifi_page),
         ]
 
         self.pages_stack = QStackedWidget()
@@ -543,6 +544,19 @@ class MainWindow(QMainWindow):  # type: ignore
         topo = self.app.get_topology()
         self.topo_widget = TopologyWidget(topo, self)
         layout.addWidget(self.topo_widget)
+        return page
+
+    # =========================================================================
+    # Page 10: Wi-Fi Spectrum & Signal Analysis
+    # =========================================================================
+    def _create_wifi_page(self) -> QWidget:
+        from itsa_network_os.ui.desktop.wifi_canvas import WifiSpectrumWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.wifi_widget = WifiSpectrumWidget(self.app, self)
+        layout.addWidget(self.wifi_widget)
         return page
 
     # =========================================================================

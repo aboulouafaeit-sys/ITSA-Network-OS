@@ -45,6 +45,8 @@ It is architected following clean separation of concerns, defensive programming 
 - **`dns.py`**: Non-destructive DNS resolution diagnostics, server response latency measurement, and system resolver detection.
 - **`latency.py`**: Safe round-trip network connectivity and latency benchmarking using unprivileged TCP handshake timing, computing min/avg/max latency, packet loss, and jitter.
 - **`routes.py`**: Read-only system routing table parser and IEEE 802.1Q VLAN subinterface detector.
+- **`topology.py`**: 2D node-link network graph data model with automated hierarchical coordinate layout engine.
+- **`wifi.py`**: 802.11 wireless airwave inspection, access point classification (Wi-Fi 4/5/6/7, WPA2/WPA3, WEP), and RF spectrum channel congestion and cleanest channel evaluation engine for 2.4 GHz and 5 GHz bands.
 
 ### 2.3 Security (`src/itsa_network_os/security/`)
 - **`validator.py`**: Strict input validation for IP addresses, CIDR blocks, hostnames, and file paths to prevent injection or invalid state execution.
@@ -56,7 +58,17 @@ It is architected following clean separation of concerns, defensive programming 
 
 ### 2.5 UI (`src/itsa_network_os/ui/`)
 - **`cli.py`**: Standard terminal UI with clean tables, structured headers, and exit codes suitable for scripting and pipelines.
-- **`desktop/`**: Modern PySide6 desktop dashboard featuring 8 interactive tabs with dark glassmorphic styling.
+- **`desktop/`**: Modern PySide6 desktop dashboard featuring 10 interactive tabs with dark glassmorphic styling:
+  1. System Overview & Health
+  2. CIDR Subnet Calculator
+  3. Network Interfaces
+  4. DNS Resolution Diagnostics
+  5. Latency Benchmark
+  6. Cybersecurity Posture Audit
+  7. Packet & Protocol Dissection Lab
+  8. Routing Table & VLANs
+  9. 2D Network Topology Visualizer
+  10. Wi-Fi Spectrum & Wireless Signal Analysis
 
 ## 3. Security & Safety Guarantees
 - **Least Privilege**: Application runs strictly as an unprivileged user (`non-root`).

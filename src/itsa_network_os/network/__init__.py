@@ -29,6 +29,14 @@ from itsa_network_os.network.topology import (
     TopologyNode,
     TopologyNodeType,
 )
+from itsa_network_os.network.wifi import (
+    AccessPointInfo,
+    ChannelCongestionReport,
+    SpectrumBand,
+    WifiSecurityProtocol,
+    WifiStandard,
+    WirelessSpectrumAnalyzer,
+)
 
 __all__ = [
     "InterfaceState",
@@ -57,4 +65,10 @@ __all__ = [
     "TopologyNodeType",
     "NodeStatus",
     "TopologyDiscoveryEngine",
+    "AccessPointInfo",
+    "ChannelCongestionReport",
+    "SpectrumBand",
+    "WifiSecurityProtocol",
+    "WifiStandard",
+    "WirelessSpectrumAnalyzer",
 ]

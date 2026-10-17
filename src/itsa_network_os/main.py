@@ -92,6 +92,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Synthesize and inspect network topology graph and interconnects",
     )
     parser.add_argument(
+        "--wifi-scan",
+        action="store_true",
+        help="Scan and list nearby wireless access points and security ratings",
+    )
+    parser.add_argument(
+        "--wifi-spectrum",
+        action="store_true",
+        help="Analyze RF spectrum channel congestion and cleanest channel recommendations",
+    )
+    parser.add_argument(
+        "--band",
+        choices=["2.4ghz", "5ghz"],
+        default="2.4ghz",
+        help="Frequency band for spectrum analysis (default: 2.4ghz)",
+    )
+    parser.add_argument(
         "--live",
         action="store_true",
         help="Execute live queries instead of using safe mock provider",
@@ -133,6 +149,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         or args.lab
         or args.routes
         or args.topology
+        or args.wifi_scan
+        or args.wifi_spectrum
     )
     if not has_command:
         TerminalFormatter.print_banner()
@@ -227,6 +245,28 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_topology(topology)
+            return 0
+
+        if args.wifi_scan:
+            aps = app.get_wifi_access_points(force_live=args.live)
+            if args.json:
+                data = [ap.to_dict() for ap in aps]
+                print(ReportExporter.to_json(data))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_wifi_scan(aps)
+            return 0
+
+        if args.wifi_spectrum:
+            from itsa_network_os.network.wifi import SpectrumBand
+            band = SpectrumBand.BAND_5_GHZ if args.band.lower() == "5ghz" else SpectrumBand.BAND_2_4_GHZ
+            reports = app.analyze_wifi_spectrum(band=band, force_live=args.live)
+            if args.json:
+                data = [r.to_dict() for r in reports]
+                print(ReportExporter.to_json(data))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_wifi_spectrum(reports, band_name=band.value)
             return 0
 
     except (SecurityValidationError, SubnetCalculationError) as exc:

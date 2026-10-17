@@ -31,9 +31,10 @@
 
 ## Research & Development (R&D) Specialized Tracks (Active)
 - [x] **Track 1: Interactive Network Topology Visualizer (`TopologyWidget`, `TopologyDiscoveryEngine`)**: 2D node-link graph canvas with pan, zoom, hierarchical layout, and device inspector.
-- [ ] **Track 2: Live Bandwidth & Traffic Flow Monitor**: Real-time throughput graph and packet counter.
-- [ ] **Track 3: TLS / SSL Cryptographic Inspector**: Certificate chain and cipher suite auditor.
-- [ ] **Track 4: Routing Protocol & Dijkstra Algorithm Simulator**: Step-by-step shortest path SPF visualizer.
+- [x] **Track 2: Wi-Fi Inspection & Wireless Spectrum Analysis (`WifiSpectrumWidget`, `WirelessSpectrumAnalyzer`)**: Non-destructive 802.11 airwave scanner, RF bell-curve spectrum visualizer (2.4/5 GHz), co-channel interference calculator, and WEP/Open security audit.
+- [ ] **Track 3: Live Bandwidth & Traffic Flow Monitor**: Real-time throughput graph and interface packet counter.
+- [ ] **Track 4: TLS / SSL Cryptographic Inspector**: Certificate chain and cipher suite security auditor.
+- [ ] **Track 5: Routing Protocol & Dijkstra SPF Simulator**: Step-by-step shortest path SPF link-state visualizer.
 
 ## Debian Live OS Distribution Recipe (Complete)
 - [x] Debian 13 (Trixie) live-build recipe and configuration (`debian-live/auto/config`).

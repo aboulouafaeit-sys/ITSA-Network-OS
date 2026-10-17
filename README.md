@@ -7,7 +7,8 @@ ITSA Network OS is designed for network administrators, security engineers, and 
 ---
 
 ## Key Features
-- **Professional Desktop GUI**: Modern, dark glassmorphic desktop interface powered by PySide6 with 9 integrated tabs.
+- **Professional Desktop GUI**: Modern, dark glassmorphic desktop interface powered by PySide6 with 10 integrated tabs.
+- **Wi-Fi Spectrum & Wireless Signal Analysis**: Non-destructive 802.11 airwave scanner, RF parabolic curve spectrum visualizer (2.4/5 GHz), co-channel interference calculator, and WEP/Open security audit.
 - **Interactive Network Topology Visualizer**: 2D node-link graph canvas with pan, zoom, tier layout, and device inspector.
 - **Cybersecurity Posture Auditor**: Non-destructive process privilege evaluation, open listening port discovery, and configuration security scoring.
 - **Educational Cybersecurity Lab**: Built-in packet protocol dissector with educational breakdown of Ethernet, IPv4, TCP, UDP, and ICMP headers.
@@ -43,6 +44,15 @@ itsa-network-os --gui
 
 #### CLI Diagnostics & Analysis Commands:
 ```bash
+# Scan nearby Wi-Fi access points and security ratings
+itsa-network-os --wifi-scan
+
+# Analyze 2.4 GHz RF spectrum channel congestion
+itsa-network-os --wifi-spectrum
+
+# Analyze 5 GHz RF spectrum channel congestion
+itsa-network-os --wifi-spectrum --band 5ghz
+
 # Synthesize and inspect network topology
 itsa-network-os --topology
 

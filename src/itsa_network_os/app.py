@@ -14,6 +14,12 @@ from itsa_network_os.network.latency import LatencyBenchmarkResult, LatencyTeste
 from itsa_network_os.network.models import NetworkInterface, SubnetCalculationResult
 from itsa_network_os.network.routes import RouteEntry, RouteParser
 from itsa_network_os.network.subnet import SubnetCalculator
+from itsa_network_os.network.wifi import (
+    AccessPointInfo,
+    ChannelCongestionReport,
+    SpectrumBand,
+    WirelessSpectrumAnalyzer,
+)
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
 from itsa_network_os.security.lab import EducationalPacketLab, ParsedPacket
 from itsa_network_os.storage.database import DatabaseManager
@@ -122,3 +128,17 @@ class Application:
         from itsa_network_os.network.topology import NetworkTopology, TopologyDiscoveryEngine
         self.logger.info("Synthesizing network topology graph")
         return TopologyDiscoveryEngine.get_default_topology()
+
+    def get_wifi_access_points(self, force_live: bool = False) -> List[AccessPointInfo]:
+        """Discover wireless access points (offline-first mock by default, non-destructive)."""
+        use_mock = self.config.use_mock_network and not force_live
+        self.logger.info("Scanning Wi-Fi access points (mock=%s)", use_mock)
+        return WirelessSpectrumAnalyzer.get_access_points(use_mock=use_mock)
+
+    def analyze_wifi_spectrum(
+        self, band: SpectrumBand = SpectrumBand.BAND_2_4_GHZ, force_live: bool = False
+    ) -> List[ChannelCongestionReport]:
+        """Analyze wireless spectrum utilization and RF channel interference."""
+        aps = self.get_wifi_access_points(force_live=force_live)
+        self.logger.info("Analyzing Wi-Fi spectrum for band %s across %d APs", band.value, len(aps))
+        return WirelessSpectrumAnalyzer.analyze_spectrum(aps, band=band)
