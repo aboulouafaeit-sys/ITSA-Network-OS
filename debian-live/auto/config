@@ -1,0 +1,20 @@
+#!/bin/sh
+set -e
+
+# Debian 13 (Trixie) live-build configuration recipe for ITSA Network OS
+lb config noauto \
+    --distribution trixie \
+    --architectures amd64 \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --bootloader syslinux \
+    --security true \
+    --updates true \
+    --image-name "itsa-network-os-live-amd64" \
+    --iso-application "ITSA Network OS" \
+    --iso-preparer "ITSA Network OS Project Maintainers" \
+    --iso-publisher "ITSA Network OS Community" \
+    --iso-volume "ITSA_NETWORK_OS" \
+    --memtest none \
+    --win32-loader false \
+    --apt-recommends false \
+    "${@}"

@@ -1,0 +1,32 @@
+#!/bin/sh
+set -e
+
+# Live-build chroot hook: Install ITSA Network OS into system environment
+echo "==> [Hook] Installing ITSA Network OS application runtime..."
+
+# 1. Create system-wide virtual environment for desktop applications
+mkdir -p /opt/itsa-network-os
+python3 -m venv /opt/itsa-network-os/venv
+/opt/itsa-network-os/venv/bin/pip install --upgrade pip
+/opt/itsa-network-os/venv/bin/pip install PySide6
+
+# 2. Copy source files if present, or create wrapper
+if [ -d /tmp/itsa-src ]; then
+    /opt/itsa-network-os/venv/bin/pip install /tmp/itsa-src
+fi
+
+# 3. Create global symlink in /usr/local/bin
+cat <<'EOF' > /usr/local/bin/itsa-network-os
+#!/bin/sh
+exec /opt/itsa-network-os/venv/bin/itsa-network-os "$@"
+EOF
+
+chmod 755 /usr/local/bin/itsa-network-os
+
+# 4. Make desktop file executable
+chmod 755 /usr/share/applications/itsa-network-os.desktop || true
+if [ -f /etc/skel/Desktop/itsa-network-os.desktop ]; then
+    chmod 755 /etc/skel/Desktop/itsa-network-os.desktop || true
+fi
+
+echo "==> [Hook] ITSA Network OS installation hook complete."

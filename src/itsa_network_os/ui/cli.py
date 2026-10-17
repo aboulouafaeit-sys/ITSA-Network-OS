@@ -1,0 +1,159 @@
+"""Command line user interface utilities for ITSA Network OS."""
+
+from __future__ import annotations
+
+import sys
+from typing import Any, List
+
+from itsa_network_os.core.health import SystemHealthReport
+from itsa_network_os.network.dns import DNSDiagnosticResult
+from itsa_network_os.network.latency import LatencyBenchmarkResult
+from itsa_network_os.network.models import NetworkInterface, SubnetCalculationResult
+from itsa_network_os.network.routes import RouteEntry
+from itsa_network_os.security.auditor import SecurityAuditReport
+from itsa_network_os.security.lab import ParsedPacket
+
+
+class TerminalFormatter:
+    """Format tabular data and diagnostic cards for standard terminal output."""
+
+    @staticmethod
+    def print_banner() -> None:
+        """Display ASCII header banner."""
+        banner = (
+            "============================================================\n"
+            "            ITSA Network OS — Core Platform                 \n"
+            "   Modular Network Engineering & Cybersecurity Environment  \n"
+            "============================================================"
+        )
+        print(banner)
+
+    @staticmethod
+    def print_health_report(report: SystemHealthReport) -> None:
+        """Render health check results."""
+        status_marker = "[OK]" if report.status.value == "HEALTHY" else f"[{report.status.value}]"
+        print(f"\nSystem Status: {status_marker}")
+        print(f"  • Platform          : {report.platform_name} ({report.architecture})")
+        print(f"  • Python Runtime    : {report.python_version}")
+        print(f"  • Virtual Env Active: {'Yes' if report.is_virtual_env else 'No (Direct System Interpreter)'}")
+        print(f"  • Non-Root Privilege: {'Yes (Safe)' if report.user_non_root else 'No (Running as root)'}")
+        print(f"  • Free Home Disk    : {report.disk_free_gb} GB")
+
+        if report.issues:
+            print("\n  Advisory Notices:")
+            for issue in report.issues:
+                print(f"    - {issue}")
+        print()
+
+    @staticmethod
+    def print_subnet_result(result: SubnetCalculationResult) -> None:
+        """Render subnet calculation card."""
+        print("\n------------------------------------------------------------")
+        print(f" Subnet Breakdown: {result.cidr}")
+        print("------------------------------------------------------------")
+        print(f"  • IP Version       : IPv{result.ip_version}")
+        print(f"  • Network Address  : {result.network_address}")
+        print(f"  • Netmask          : {result.netmask}")
+        print(f"  • Wildcard Mask    : {result.wildcard_mask}")
+        print(f"  • Broadcast Address: {result.broadcast_address}")
+        print(f"  • Total Addresses  : {result.total_hosts:,}")
+        print(f"  • Usable Host Count: {result.usable_hosts:,}")
+        print(f"  • Usable Host Span : {result.first_usable_ip}  ->  {result.last_usable_ip}")
+        print("------------------------------------------------------------\n")
+
+    @staticmethod
+    def print_interfaces(interfaces: List[NetworkInterface]) -> None:
+        """Render table of network interfaces."""
+        print("\n-------------------------------------------------------------------------------")
+        print(f" {'Interface':<12} | {'State':<7} | {'Type':<10} | {'MTU':<6} | {'MAC Address':<18} | {'Addresses'}")
+        print("-------------------------------------------------------------------------------")
+        for iface in interfaces:
+            addr_strs = [f"{a.address}/{a.prefix_length}" for a in iface.addresses]
+            addrs_display = ", ".join(addr_strs) if addr_strs else "(none)"
+            print(
+                f" {iface.name:<12} | {iface.state.value:<7} | {iface.interface_type.value:<10} | "
+                f"{iface.mtu:<6} | {iface.mac_address:<18} | {addrs_display}"
+            )
+        print("-------------------------------------------------------------------------------\n")
+
+    @staticmethod
+    def print_dns_result(result: DNSDiagnosticResult) -> None:
+        """Render DNS diagnostic report card."""
+        status_marker = "[OK]" if result.status == "SUCCESS" else f"[{result.status}]"
+        print("\n------------------------------------------------------------")
+        print(f" DNS Resolution: {result.target_host} {status_marker}")
+        print("------------------------------------------------------------")
+        print(f"  • Response Latency  : {result.response_time_ms} ms")
+        print(f"  • Active Resolvers  : {', '.join(result.system_resolvers)}")
+
+        if result.error_message:
+            print(f"  • Error             : {result.error_message}")
+
+        if result.records:
+            print("  • Resolved Records  :")
+            for rec in result.records:
+                print(f"    - {rec.record_type:<6} : {rec.value}")
+        print("------------------------------------------------------------\n")
+
+    @staticmethod
+    def print_latency_result(result: LatencyBenchmarkResult) -> None:
+        """Render latency and connectivity benchmark card."""
+        loss_marker = "[OK]" if result.packet_loss_percent == 0.0 else f"[{result.packet_loss_percent}% LOSS]"
+        print("\n------------------------------------------------------------")
+        print(f" Latency Benchmark: {result.target_host}:{result.target_port} {loss_marker}")
+        print("------------------------------------------------------------")
+        print(f"  • Probes Sent/Recv : {result.probes_sent} sent / {result.probes_received} received")
+        print(f"  • Packet Loss      : {result.packet_loss_percent}%")
+        print(f"  • Round-Trip Min   : {result.min_latency_ms} ms")
+        print(f"  • Round-Trip Avg   : {result.avg_latency_ms} ms")
+        print(f"  • Round-Trip Max   : {result.max_latency_ms} ms")
+        print(f"  • Jitter           : {result.jitter_ms} ms")
+
+        if result.probes:
+            print("  • Probe Breakdown  :")
+            for p in result.probes:
+                status_str = f"{p.latency_ms} ms" if p.success else f"FAIL ({p.error})"
+                print(f"    - Seq #{p.sequence:<2} : {status_str}")
+        print("------------------------------------------------------------\n")
+
+    @staticmethod
+    def print_security_audit(report: SecurityAuditReport) -> None:
+        """Render security audit findings and posture score."""
+        score_badge = f"{report.overall_score}/100"
+        print("\n------------------------------------------------------------")
+        print(f" Cybersecurity Posture Audit — Score: {score_badge}")
+        print("------------------------------------------------------------")
+        ports_str = ", ".join(str(p) for p in report.open_local_ports) if report.open_local_ports else "(none)"
+        print(f"  • Open Localhost Ports : {ports_str}")
+        print("\n  Audit Findings & Recommendations:")
+        for idx, finding in enumerate(report.findings, start=1):
+            print(f"  {idx}. [{finding.severity.value}] {finding.title}")
+            print(f"     Description   : {finding.description}")
+            print(f"     Recommendation: {finding.recommendation}\n")
+        print("------------------------------------------------------------\n")
+
+    @staticmethod
+    def print_packet_lab(packets: List[ParsedPacket]) -> None:
+        """Render educational cybersecurity packet lab trace."""
+        print("\n===============================================================================")
+        print("        Educational Cybersecurity Laboratory — Packet Protocol Dissection     ")
+        print("===============================================================================")
+        for pkt in packets:
+            print(f"\n[Packet #{pkt.index}] Protocol: {pkt.protocol:<10} Length: {pkt.length_bytes} bytes")
+            print(f"  Flow: {pkt.src}  -->  {pkt.dst}")
+            print(f"  Summary: {pkt.summary}")
+            for layer in pkt.layers:
+                print(f"    + Layer: {layer.layer_name}")
+                for field in layer.fields:
+                    print(f"        - {field.name:<20}: {field.value:<25} | {field.explanation}")
+        print("\n===============================================================================\n")
+
+    @staticmethod
+    def print_routes(routes: List[RouteEntry]) -> None:
+        """Render routing table entries."""
+        print("\n-------------------------------------------------------------------------------")
+        print(f" {'Destination':<18} | {'Gateway':<18} | {'Netmask':<16} | {'Iface':<8} | {'Flags':<6} | {'Metric'}")
+        print("-------------------------------------------------------------------------------")
+        for r in routes:
+            print(f" {r.destination:<18} | {r.gateway:<18} | {r.netmask:<16} | {r.interface:<8} | {r.flags:<6} | {r.metric}")
+        print("-------------------------------------------------------------------------------\n")

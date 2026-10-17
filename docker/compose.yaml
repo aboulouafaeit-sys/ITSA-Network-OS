@@ -1,0 +1,10 @@
+services:
+  iso-builder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    privileged: true
+    volumes:
+      - ..:/workspace
+    working_dir: /workspace
+    command: ["/bin/bash", "scripts/build_live_iso.sh"]

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ITSA Network OS
+GenericName=Network Engineering Platform
+Comment=Modular Network Engineering and Cybersecurity Diagnostic Dashboard
+Exec=/usr/local/bin/itsa-network-os --gui
+Icon=utilities-system-monitor
+Terminal=false
+Categories=Network;System;Security;
+StartupNotify=true
