@@ -201,6 +201,25 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertIn(36, channels)
         self.assertIn(149, channels)
 
+    def test_cli_bandwidth(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--bandwidth"])
+        self.assertEqual(code, 0)
+        self.assertIn("Live Network Interface Bandwidth", stdout_buf.getvalue())
+        self.assertIn("eth0", stdout_buf.getvalue())
+
+    def test_cli_bandwidth_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--bandwidth", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertIsInstance(output, list)
+        self.assertGreaterEqual(len(output), 3)
+        self.assertEqual(output[0]["interface_name"], "eth0")
+        self.assertIn("rx_bytes_sec", output[0])
+
 
 if __name__ == "__main__":
     unittest.main()

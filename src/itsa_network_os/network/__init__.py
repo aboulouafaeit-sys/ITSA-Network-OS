@@ -29,6 +29,13 @@ from itsa_network_os.network.topology import (
     TopologyNode,
     TopologyNodeType,
 )
+from itsa_network_os.network.bandwidth import (
+    BandwidthRate,
+    InterfaceTrafficSample,
+    TrafficMonitorEngine,
+    format_bytes_rate,
+    format_total_bytes,
+)
 from itsa_network_os.network.wifi import (
     AccessPointInfo,
     ChannelCongestionReport,
@@ -71,4 +78,9 @@ __all__ = [
     "WifiSecurityProtocol",
     "WifiStandard",
     "WirelessSpectrumAnalyzer",
+    "InterfaceTrafficSample",
+    "BandwidthRate",
+    "TrafficMonitorEngine",
+    "format_bytes_rate",
+    "format_total_bytes",
 ]

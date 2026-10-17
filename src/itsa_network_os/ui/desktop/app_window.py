@@ -77,6 +77,7 @@ class MainWindow(QMainWindow):  # type: ignore
             ("🗺️ Routing Table", self._create_routes_page),
             ("🌐 Topology Visualizer", self._create_topology_page),
             ("📡 Wi-Fi & Spectrum", self._create_wifi_page),
+            ("📈 Bandwidth & Flow", self._create_bandwidth_page),
         ]
 
         self.pages_stack = QStackedWidget()
@@ -557,6 +558,19 @@ class MainWindow(QMainWindow):  # type: ignore
         layout.setContentsMargins(0, 0, 0, 0)
         self.wifi_widget = WifiSpectrumWidget(self.app, self)
         layout.addWidget(self.wifi_widget)
+        return page
+
+    # =========================================================================
+    # Page 11: Live Bandwidth & Traffic Flow Monitor
+    # =========================================================================
+    def _create_bandwidth_page(self) -> QWidget:
+        from itsa_network_os.ui.desktop.bandwidth_canvas import BandwidthMonitorWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.bandwidth_widget = BandwidthMonitorWidget(self.app, self)
+        layout.addWidget(self.bandwidth_widget)
         return page
 
     # =========================================================================

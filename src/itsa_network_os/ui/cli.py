@@ -7,6 +7,7 @@ from typing import Any, List
 
 from itsa_network_os.core.health import SystemHealthReport
 from itsa_network_os.network.dns import DNSDiagnosticResult
+from itsa_network_os.network.bandwidth import BandwidthRate, format_total_bytes
 from itsa_network_os.network.latency import LatencyBenchmarkResult
 from itsa_network_os.network.models import NetworkInterface, SubnetCalculationResult
 from itsa_network_os.network.routes import RouteEntry
@@ -222,4 +223,25 @@ class TerminalFormatter:
         if recommended_channels:
             print(f"  Best Operating Channels for {band_name}: Channels {', '.join(recommended_channels)}")
         print("===============================================================================\n")
+
+    @staticmethod
+    def print_bandwidth_monitor(rates: List[BandwidthRate]) -> None:
+        """Render live network interface throughput rates and packet counters."""
+        print("\n=====================================================================================================")
+        print("                 Live Network Interface Bandwidth & Traffic Flow Monitor                             ")
+        print("=====================================================================================================")
+        print(f"\n {'Interface':<12} | {'RX Throughput':<14} | {'TX Throughput':<14} | {'RX Pkts/s':<11} | {'TX Pkts/s':<11} | {'Total RX':<12} | {'Total TX'}")
+        print("-----------------------------------------------------------------------------------------------------")
+        for r in rates:
+            tot_rx = format_total_bytes(r.total_rx_bytes)
+            tot_tx = format_total_bytes(r.total_tx_bytes)
+            print(
+                f" {r.interface_name:<12} | {r.rx_rate_formatted:<14} | {r.tx_rate_formatted:<14} | "
+                f"{r.rx_packets_sec:<11.1f} | {r.tx_packets_sec:<11.1f} | {tot_rx:<12} | {tot_tx}"
+            )
+        print("-----------------------------------------------------------------------------------------------------")
+        errors = sum(r.rx_errors + r.tx_errors for r in rates)
+        drops = sum(r.rx_dropped + r.tx_dropped for r in rates)
+        print(f" Aggregate Status: {errors} Interface Errors | {drops} Dropped Packets")
+        print("=====================================================================================================\n")
 

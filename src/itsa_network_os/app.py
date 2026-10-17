@@ -20,6 +20,7 @@ from itsa_network_os.network.wifi import (
     SpectrumBand,
     WirelessSpectrumAnalyzer,
 )
+from itsa_network_os.network.bandwidth import BandwidthRate, TrafficMonitorEngine
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
 from itsa_network_os.security.lab import EducationalPacketLab, ParsedPacket
 from itsa_network_os.storage.database import DatabaseManager
@@ -32,6 +33,7 @@ class Application:
         self.config = config or load_config()
         self.logger = setup_logging(level=self.config.log_level)
         self.database = DatabaseManager(self.config.database_file)
+        self._traffic_monitor = TrafficMonitorEngine(use_mock=self.config.use_mock_network)
         self.logger.debug("Application initialized with configuration: %s", self.config.app_name)
 
     def check_health(self) -> SystemHealthReport:
@@ -142,3 +144,14 @@ class Application:
         aps = self.get_wifi_access_points(force_live=force_live)
         self.logger.info("Analyzing Wi-Fi spectrum for band %s across %d APs", band.value, len(aps))
         return WirelessSpectrumAnalyzer.analyze_spectrum(aps, band=band)
+
+    def sample_bandwidth(self, force_live: bool = False) -> List[BandwidthRate]:
+        """Sample network adapter traffic velocity, throughput rates, and packet flow."""
+        use_mock = self.config.use_mock_network and not force_live
+        if self._traffic_monitor.use_mock != use_mock:
+            self._traffic_monitor = TrafficMonitorEngine(use_mock=use_mock)
+
+        samples = self._traffic_monitor.sample_all()
+        rates = self._traffic_monitor.calculate_rates(samples)
+        self.logger.debug("Sampled traffic flow for %d network adapters", len(rates))
+        return rates

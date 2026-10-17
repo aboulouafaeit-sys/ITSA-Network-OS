@@ -39,6 +39,7 @@ def capture_all() -> None:
         (7, "routing_table.png"),
         (8, "network_topology.png"),
         (9, "wifi_spectrum_analyzer.png"),
+        (10, "bandwidth_monitor.png"),
     ]
 
     for index, filename in tabs:
@@ -62,6 +63,8 @@ def capture_all() -> None:
             win._on_packet_selected(1)  # Select TCP SYN handshake packet
         elif index == 7:
             win._load_routes()
+        elif index == 10:
+            win.bandwidth_widget._on_timer_tick()
 
         qt_app.processEvents()
 
@@ -75,6 +78,7 @@ def capture_all() -> None:
 
         print(f"Captured {filename}: {local_path.stat().st_size} bytes")
 
+    win.bandwidth_widget.timer.stop()
     win.close()
 
 

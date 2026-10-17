@@ -102,6 +102,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Analyze RF spectrum channel congestion and cleanest channel recommendations",
     )
     parser.add_argument(
+        "--bandwidth",
+        action="store_true",
+        help="Sample real-time network adapter throughput rates, bandwidth, and packet counters",
+    )
+    parser.add_argument(
         "--band",
         choices=["2.4ghz", "5ghz"],
         default="2.4ghz",
@@ -151,6 +156,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         or args.topology
         or args.wifi_scan
         or args.wifi_spectrum
+        or args.bandwidth
     )
     if not has_command:
         TerminalFormatter.print_banner()
@@ -267,6 +273,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_wifi_spectrum(reports, band_name=band.value)
+            return 0
+
+        if args.bandwidth:
+            rates = app.sample_bandwidth(force_live=args.live)
+            if args.json:
+                data = [r.to_dict() for r in rates]
+                print(ReportExporter.to_json(data))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_bandwidth_monitor(rates)
             return 0
 
     except (SecurityValidationError, SubnetCalculationError) as exc:

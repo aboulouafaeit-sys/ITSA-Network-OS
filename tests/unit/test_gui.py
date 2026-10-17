@@ -31,7 +31,7 @@ class TestDesktopGUI(unittest.TestCase):
             app = Application(config=AppConfig(database_file=":memory:"))
             window = MainWindow(app)
 
-            self.assertEqual(window.pages_stack.count(), 10)
+            self.assertEqual(window.pages_stack.count(), 11)
             self.assertIn("ITSA Network OS", window.windowTitle())
 
             # Test subnet calculate trigger in GUI
@@ -51,6 +51,12 @@ class TestDesktopGUI(unittest.TestCase):
             self.assertTrue(hasattr(window, "wifi_widget"))
             self.assertGreater(window.wifi_widget.ap_table.rowCount(), 0)
             self.assertIsNotNone(window.wifi_widget.spectrum_graph)
+
+            # Test Bandwidth widget on page 10 (index 10)
+            self.assertTrue(hasattr(window, "bandwidth_widget"))
+            self.assertGreater(window.bandwidth_widget.rates_table.rowCount(), 0)
+            self.assertIsNotNone(window.bandwidth_widget.graph_widget)
+            window.bandwidth_widget.timer.stop()
 
         except ImportError:
             self.skipTest("PySide6 not available for GUI test")
