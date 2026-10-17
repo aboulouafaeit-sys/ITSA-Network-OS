@@ -12,6 +12,12 @@ from itsa_network_os.security.lab import (
     PacketLayer,
     ParsedPacket,
 )
+from itsa_network_os.security.tls import (
+    CipherSecurityLevel,
+    TLSInspectionReport,
+    TLSInspectorEngine,
+    X509CertificateInfo,
+)
 from itsa_network_os.security.validator import (
     InputValidator,
     SecurityValidationError,
@@ -28,4 +34,8 @@ __all__ = [
     "ParsedPacket",
     "PacketLayer",
     "PacketField",
+    "CipherSecurityLevel",
+    "X509CertificateInfo",
+    "TLSInspectionReport",
+    "TLSInspectorEngine",
 ]

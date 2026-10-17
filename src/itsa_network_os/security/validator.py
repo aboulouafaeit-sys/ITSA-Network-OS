@@ -15,6 +15,28 @@ class InputValidator:
     """Strict input validation rules for network parameters and system inputs."""
 
     INTERFACE_PATTERN = re.compile(r"^[a-zA-Z0-9_\-]{1,16}$")
+    HOSTNAME_PATTERN = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9\-\.]{0,251}[a-zA-Z0-9])?$")
+
+    @classmethod
+    def validate_hostname(cls, host: str) -> str:
+        """Validate string as safe FQDN, domain, or IP address without shell characters."""
+        clean = host.strip()
+        if not clean or len(clean) > 253:
+            raise SecurityValidationError(f"Invalid host length: '{host}'")
+        if not cls.HOSTNAME_PATTERN.match(clean):
+            raise SecurityValidationError(f"Invalid characters in host string: '{host}'")
+        return clean
+
+    @classmethod
+    def validate_port(cls, port: int) -> int:
+        """Validate network TCP/UDP port range (1-65535)."""
+        try:
+            p = int(port)
+        except (ValueError, TypeError) as exc:
+            raise SecurityValidationError(f"Port must be an integer: '{port}'") from exc
+        if not (1 <= p <= 65535):
+            raise SecurityValidationError(f"Port {p} outside allowed range [1, 65535]")
+        return p
 
     @classmethod
     def validate_ipv4_address(cls, address: str) -> ipaddress.IPv4Address:

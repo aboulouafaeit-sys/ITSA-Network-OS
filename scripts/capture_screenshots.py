@@ -40,6 +40,7 @@ def capture_all() -> None:
         (8, "network_topology.png"),
         (9, "wifi_spectrum_analyzer.png"),
         (10, "bandwidth_monitor.png"),
+        (11, "tls_inspector.png"),
     ]
 
     for index, filename in tabs:
@@ -65,6 +66,8 @@ def capture_all() -> None:
             win._load_routes()
         elif index == 10:
             win.bandwidth_widget._on_timer_tick()
+        elif index == 11:
+            win.tls_widget.inspect_target("cloudflare.com", 443)
 
         qt_app.processEvents()
 

@@ -14,6 +14,7 @@ from itsa_network_os.network.routes import RouteEntry
 from itsa_network_os.network.wifi import AccessPointInfo, ChannelCongestionReport
 from itsa_network_os.security.auditor import SecurityAuditReport
 from itsa_network_os.security.lab import ParsedPacket
+from itsa_network_os.security.tls import TLSInspectionReport
 
 
 class TerminalFormatter:
@@ -244,4 +245,42 @@ class TerminalFormatter:
         drops = sum(r.rx_dropped + r.tx_dropped for r in rates)
         print(f" Aggregate Status: {errors} Interface Errors | {drops} Dropped Packets")
         print("=====================================================================================================\n")
+
+    @staticmethod
+    def print_tls_inspection(report: TLSInspectionReport) -> None:
+        """Render TLS/SSL cryptographic inspection report."""
+        print("\n===============================================================================")
+        print(f"        TLS / SSL Cryptographic & Certificate Inspection: {report.target_host}:{report.target_port}")
+        print("===============================================================================")
+        print(f"  • Posture Score       : {report.overall_score} / 100")
+        print(f"  • Negotiated Protocol : {report.negotiated_protocol}")
+        print(f"  • Cipher Suite        : {report.negotiated_cipher}")
+        print(f"  • Cipher Strength     : {report.cipher_security.value}")
+
+        if report.certificate_chain:
+            cert = report.certificate_chain[0]
+            status_desc = "EXPIRED" if cert.is_expired else ("SELF-SIGNED" if cert.is_self_signed else "VALID")
+            print("\n  --- Public Key Certificate (X.509) ---")
+            print(f"  • Subject Common Name : {cert.subject_cn}")
+            print(f"  • Issuer Authority    : {cert.issuer_cn} ({cert.issuer_organization})")
+            print(f"  • Validity Period     : {cert.valid_from}  -->  {cert.valid_to}")
+            print(f"  • Expiration Status   : [{status_desc}] ({cert.days_until_expiration} days remaining)")
+            print(f"  • Key Specification   : {cert.key_type} {cert.key_bits}-bit ({cert.signature_algorithm})")
+            print(f"  • SHA-256 Fingerprint : {cert.fingerprint_sha256}")
+            if cert.san_list:
+                sans_disp = ", ".join(cert.san_list[:6])
+                if len(cert.san_list) > 6:
+                    sans_disp += f" (+{len(cert.san_list) - 6} more)"
+                print(f"  • SAN DNS Names       : {sans_disp}")
+
+        if report.vulnerabilities:
+            print("\n  Security Vulnerabilities & Findings:")
+            for v in report.vulnerabilities:
+                print(f"    [!] {v}")
+
+        if report.recommendations:
+            print("\n  Hardening Recommendations:")
+            for rec in report.recommendations:
+                print(f"    [*] {rec}")
+        print("===============================================================================\n")
 

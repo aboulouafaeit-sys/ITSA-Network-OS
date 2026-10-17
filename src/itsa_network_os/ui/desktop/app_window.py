@@ -78,6 +78,7 @@ class MainWindow(QMainWindow):  # type: ignore
             ("🌐 Topology Visualizer", self._create_topology_page),
             ("📡 Wi-Fi & Spectrum", self._create_wifi_page),
             ("📈 Bandwidth & Flow", self._create_bandwidth_page),
+            ("🔒 TLS & SSL Security", self._create_tls_page),
         ]
 
         self.pages_stack = QStackedWidget()
@@ -571,6 +572,19 @@ class MainWindow(QMainWindow):  # type: ignore
         layout.setContentsMargins(0, 0, 0, 0)
         self.bandwidth_widget = BandwidthMonitorWidget(self.app, self)
         layout.addWidget(self.bandwidth_widget)
+        return page
+
+    # =========================================================================
+    # Page 12: TLS / SSL Cryptographic Inspector
+    # =========================================================================
+    def _create_tls_page(self) -> QWidget:
+        from itsa_network_os.ui.desktop.tls_canvas import TLSInspectorWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.tls_widget = TLSInspectorWidget(self)
+        layout.addWidget(self.tls_widget)
         return page
 
     # =========================================================================

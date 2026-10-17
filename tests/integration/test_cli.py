@@ -220,6 +220,33 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertEqual(output[0]["interface_name"], "eth0")
         self.assertIn("rx_bytes_sec", output[0])
 
+    def test_cli_tls(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--tls", "example.com"])
+        self.assertEqual(code, 0)
+        self.assertIn("TLS / SSL Cryptographic & Certificate Inspection", stdout_buf.getvalue())
+        self.assertIn("example.com:443", stdout_buf.getvalue())
+        self.assertIn("TLSv1.3", stdout_buf.getvalue())
+
+    def test_cli_tls_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--tls", "example.com", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertEqual(output["target_host"], "example.com")
+        self.assertEqual(output["negotiated_protocol"], "TLSv1.3")
+        self.assertEqual(output["overall_score"], 100)
+        self.assertIn("certificate_chain", output)
+
+    def test_cli_tls_validation_error(self) -> None:
+        stderr_buf = io.StringIO()
+        with redirect_stderr(stderr_buf):
+            code = main(["--tls", "bad;host"])
+        self.assertEqual(code, 1)
+        self.assertIn("Error:", stderr_buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

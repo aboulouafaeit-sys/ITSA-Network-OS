@@ -31,7 +31,7 @@ class TestDesktopGUI(unittest.TestCase):
             app = Application(config=AppConfig(database_file=":memory:"))
             window = MainWindow(app)
 
-            self.assertEqual(window.pages_stack.count(), 11)
+            self.assertEqual(window.pages_stack.count(), 12)
             self.assertIn("ITSA Network OS", window.windowTitle())
 
             # Test subnet calculate trigger in GUI
@@ -57,6 +57,13 @@ class TestDesktopGUI(unittest.TestCase):
             self.assertGreater(window.bandwidth_widget.rates_table.rowCount(), 0)
             self.assertIsNotNone(window.bandwidth_widget.graph_widget)
             window.bandwidth_widget.timer.stop()
+
+            # Test TLS Inspector widget on page 11 (index 11)
+            self.assertTrue(hasattr(window, "tls_widget"))
+            self.assertIsNotNone(window.tls_widget.current_report)
+            self.assertGreater(window.tls_widget.findings_table.rowCount(), 0)
+            window.tls_widget.inspect_target("legacy.internal", 443)
+            self.assertEqual(window.tls_widget.current_report.negotiated_protocol, "TLSv1.0")
 
         except ImportError:
             self.skipTest("PySide6 not available for GUI test")

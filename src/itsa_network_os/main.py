@@ -63,7 +63,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--port",
         type=int,
         default=443,
-        help="Target port for latency benchmark (default: 443)",
+        help="Target port for latency benchmark or TLS inspection (default: 443)",
+    )
+    parser.add_argument(
+        "--tls",
+        metavar="HOST",
+        type=str,
+        help="Inspect TLS/SSL certificates, cipher suites, and cryptographic posture on target host",
     )
     parser.add_argument(
         "--count",
@@ -157,6 +163,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         or args.wifi_scan
         or args.wifi_spectrum
         or args.bandwidth
+        or args.tls
     )
     if not has_command:
         TerminalFormatter.print_banner()
@@ -283,6 +290,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_bandwidth_monitor(rates)
+            return 0
+
+        if args.tls:
+            tls_report = app.inspect_tls(args.tls, port=args.port, force_live=args.live)
+            if args.json:
+                print(ReportExporter.to_json(tls_report.to_dict()))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_tls_inspection(tls_report)
             return 0
 
     except (SecurityValidationError, SubnetCalculationError) as exc:

@@ -23,6 +23,8 @@ from itsa_network_os.network.wifi import (
 from itsa_network_os.network.bandwidth import BandwidthRate, TrafficMonitorEngine
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
 from itsa_network_os.security.lab import EducationalPacketLab, ParsedPacket
+from itsa_network_os.security.tls import TLSInspectionReport, TLSInspectorEngine
+from itsa_network_os.security.validator import InputValidator
 from itsa_network_os.storage.database import DatabaseManager
 
 
@@ -155,3 +157,12 @@ class Application:
         rates = self._traffic_monitor.calculate_rates(samples)
         self.logger.debug("Sampled traffic flow for %d network adapters", len(rates))
         return rates
+
+    def inspect_tls(self, host: str, port: int = 443, force_live: bool = False) -> TLSInspectionReport:
+        """Inspect TLS endpoint certificates, cipher suites, and cryptographic integrity."""
+        sanitized_host = InputValidator.validate_hostname(host)
+        sanitized_port = InputValidator.validate_port(port)
+
+        use_mock = self.config.use_mock_network and not force_live
+        self.logger.info("Executing TLS inspection for %s:%d (mock=%s)", sanitized_host, sanitized_port, use_mock)
+        return TLSInspectorEngine.inspect(host=sanitized_host, port=sanitized_port, use_mock=use_mock)

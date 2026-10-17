@@ -50,16 +50,17 @@ It is architected following clean separation of concerns, defensive programming 
 - **`bandwidth.py`**: Real-time interface bandwidth measurement, throughput rates (RX/TX in B/s, KB/s, MB/s, GB/s), packet flow counters, and error/drop tracking.
 
 ### 2.3 Security (`src/itsa_network_os/security/`)
-- **`validator.py`**: Strict input validation for IP addresses, CIDR blocks, hostnames, and file paths to prevent injection or invalid state execution.
+- **`validator.py`**: Strict input validation for IP addresses, CIDR blocks, hostnames, ports, and file paths to prevent injection or invalid state execution.
 - **`auditor.py`**: Non-destructive system security posture auditor checking privilege levels, open local listening service ports, and configuration permissions.
 - **`lab.py`**: Educational protocol dissection and synthetic packet capture laboratory explaining Ethernet, IP, TCP, UDP, and ICMP header fields.
+- **`tls.py`**: Non-destructive TLS/SSL cryptographic inspection engine, X.509 certificate trust chain analysis, cipher suite auditing, and cryptographic posture scoring.
 
 ### 2.4 Storage (`src/itsa_network_os/storage/`)
 - **`database.py`**: Lightweight SQLite interface for persisting diagnostic histories, subnets, DNS resolutions, and latency benchmarks locally.
 
 ### 2.5 UI (`src/itsa_network_os/ui/`)
 - **`cli.py`**: Standard terminal UI with clean tables, structured headers, and exit codes suitable for scripting and pipelines.
-- **`desktop/`**: Modern PySide6 desktop dashboard featuring 11 interactive tabs with dark glassmorphic styling:
+- **`desktop/`**: Modern PySide6 desktop dashboard featuring 12 interactive tabs with dark glassmorphic styling:
   1. System Overview & Health
   2. CIDR Subnet Calculator
   3. Network Interfaces
@@ -71,6 +72,7 @@ It is architected following clean separation of concerns, defensive programming 
   9. 2D Network Topology Visualizer
   10. Wi-Fi Spectrum & Wireless Signal Analysis
   11. Live Bandwidth & Traffic Flow Monitor
+  12. TLS / SSL Cryptographic & Certificate Inspector
 
 ## 3. Security & Safety Guarantees
 - **Least Privilege**: Application runs strictly as an unprivileged user (`non-root`).
