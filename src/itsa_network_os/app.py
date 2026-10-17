@@ -116,3 +116,9 @@ class Application:
         use_mock = self.config.use_mock_network and not force_live
         self.logger.info("Querying routing table (mock=%s)", use_mock)
         return RouteParser.get_routes(use_mock=use_mock)
+
+    def get_topology(self) -> NetworkTopology:
+        """Fetch network topology graph with computed node coordinates."""
+        from itsa_network_os.network.topology import NetworkTopology, TopologyDiscoveryEngine
+        self.logger.info("Synthesizing network topology graph")
+        return TopologyDiscoveryEngine.get_default_topology()

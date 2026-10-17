@@ -144,6 +144,25 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertIsInstance(output, list)
         self.assertGreater(len(output), 0)
 
+    def test_cli_topology(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--topology"])
+        self.assertEqual(code, 0)
+        self.assertIn("Network Topology Graph", stdout_buf.getvalue())
+        self.assertIn("wan-0", stdout_buf.getvalue())
+
+    def test_cli_topology_json(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--topology", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertIn("nodes", output)
+        self.assertIn("links", output)
+        self.assertGreater(len(output["nodes"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
+

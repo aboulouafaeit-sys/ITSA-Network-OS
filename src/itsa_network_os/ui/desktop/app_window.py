@@ -75,6 +75,7 @@ class MainWindow(QMainWindow):  # type: ignore
             ("🛡️ Security Audit", self._create_audit_page),
             ("🔬 Packet Protocol Lab", self._create_lab_page),
             ("🗺️ Routing Table", self._create_routes_page),
+            ("🌐 Topology Visualizer", self._create_topology_page),
         ]
 
         self.pages_stack = QStackedWidget()
@@ -527,6 +528,22 @@ class MainWindow(QMainWindow):  # type: ignore
             self.routes_table.setItem(row, 3, QTableWidgetItem(r.interface))
             self.routes_table.setItem(row, 4, QTableWidgetItem(r.flags))
             self.routes_table.setItem(row, 5, QTableWidgetItem(str(r.metric)))
+
+    # =========================================================================
+    # Page 9: Network Topology Visualizer
+    # =========================================================================
+    def _create_topology_page(self) -> QWidget:
+        from itsa_network_os.ui.desktop.topology_canvas import TopologyWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
+        topo = self.app.get_topology()
+        self.topo_widget = TopologyWidget(topo, self)
+        layout.addWidget(self.topo_widget)
+        return page
 
     # =========================================================================
     # Helpers

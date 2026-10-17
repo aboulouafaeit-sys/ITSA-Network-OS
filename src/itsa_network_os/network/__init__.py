@@ -21,6 +21,14 @@ from itsa_network_os.network.models import (
 )
 from itsa_network_os.network.routes import RouteEntry, RouteParser, VlanInfo
 from itsa_network_os.network.subnet import SubnetCalculationError, SubnetCalculator
+from itsa_network_os.network.topology import (
+    NetworkTopology,
+    NodeStatus,
+    TopologyDiscoveryEngine,
+    TopologyLink,
+    TopologyNode,
+    TopologyNodeType,
+)
 
 __all__ = [
     "InterfaceState",
@@ -43,4 +51,10 @@ __all__ = [
     "RouteEntry",
     "VlanInfo",
     "RouteParser",
+    "TopologyNode",
+    "TopologyLink",
+    "NetworkTopology",
+    "TopologyNodeType",
+    "NodeStatus",
+    "TopologyDiscoveryEngine",
 ]

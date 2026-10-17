@@ -7,7 +7,8 @@ ITSA Network OS is designed for network administrators, security engineers, and 
 ---
 
 ## Key Features
-- **Professional Desktop GUI**: Modern, dark glassmorphic desktop interface powered by PySide6 with 8 integrated tabs.
+- **Professional Desktop GUI**: Modern, dark glassmorphic desktop interface powered by PySide6 with 9 integrated tabs.
+- **Interactive Network Topology Visualizer**: 2D node-link graph canvas with pan, zoom, tier layout, and device inspector.
 - **Cybersecurity Posture Auditor**: Non-destructive process privilege evaluation, open listening port discovery, and configuration security scoring.
 - **Educational Cybersecurity Lab**: Built-in packet protocol dissector with educational breakdown of Ethernet, IPv4, TCP, UDP, and ICMP headers.
 - **Routing & VLAN Inspector**: Safe read-only routing table parser and IEEE 802.1Q VLAN subinterface discovery.
@@ -42,6 +43,9 @@ itsa-network-os --gui
 
 #### CLI Diagnostics & Analysis Commands:
 ```bash
+# Synthesize and inspect network topology
+itsa-network-os --topology
+
 # Security posture audit
 itsa-network-os --audit
 

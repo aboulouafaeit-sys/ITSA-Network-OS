@@ -87,6 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Inspect system routing table entries safely (read-only)",
     )
     parser.add_argument(
+        "--topology",
+        action="store_true",
+        help="Synthesize and inspect network topology graph and interconnects",
+    )
+    parser.add_argument(
         "--live",
         action="store_true",
         help="Execute live queries instead of using safe mock provider",
@@ -127,6 +132,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         or args.audit
         or args.lab
         or args.routes
+        or args.topology
     )
     if not has_command:
         TerminalFormatter.print_banner()
@@ -212,6 +218,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             else:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_routes(routes)
+            return 0
+
+        if args.topology:
+            topology = app.get_topology()
+            if args.json:
+                print(ReportExporter.to_json(topology.to_dict()))
+            else:
+                TerminalFormatter.print_banner()
+                TerminalFormatter.print_topology(topology)
             return 0
 
     except (SecurityValidationError, SubnetCalculationError) as exc:

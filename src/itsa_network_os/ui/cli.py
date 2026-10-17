@@ -157,3 +157,23 @@ class TerminalFormatter:
         for r in routes:
             print(f" {r.destination:<18} | {r.gateway:<18} | {r.netmask:<16} | {r.interface:<8} | {r.flags:<6} | {r.metric}")
         print("-------------------------------------------------------------------------------\n")
+
+    @staticmethod
+    def print_topology(topology: Any) -> None:
+        """Render network topology graph overview in terminal."""
+        print("\n===============================================================================")
+        print("                   Network Topology Graph & Interconnections                   ")
+        print("===============================================================================")
+        print(f"\nDiscovered Nodes: {len(topology.nodes)} | Interconnect Links: {len(topology.links)}\n")
+        print("-------------------------------------------------------------------------------")
+        print(f" {'Node ID':<14} | {'Type':<12} | {'IP Address':<18} | {'Status':<8} | {'Label'}")
+        print("-------------------------------------------------------------------------------")
+        for n in topology.nodes:
+            print(f" {n.id:<14} | {n.node_type.value:<12} | {n.ip_address:<18} | {n.status.value:<8} | {n.label}")
+        print("-------------------------------------------------------------------------------")
+
+        print("\nInterconnect Topology Links:")
+        for l in topology.links:
+            print(f"  • [{l.source_id}] <--- {l.speed_mbps} Mbps ({l.latency_ms} ms) ---> [{l.target_id}] ({l.status})")
+        print("===============================================================================\n")
+
