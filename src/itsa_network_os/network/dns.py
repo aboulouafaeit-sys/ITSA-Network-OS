@@ -8,10 +8,10 @@ import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from itsa_network_os.network.models import DNSServerInfo
-from itsa_network_os.network.scope import ScopeGuard, ScopeViolationError
+from itsa_network_os.network.scope import ScopeGuard, ScopeViolationError, check_interface_route
 
 
 @dataclass(frozen=True)
@@ -212,6 +212,30 @@ class DNSDiagnostics:
 
         return {}
 
+    @staticmethod
+    def _is_stub_resolver(address: str) -> bool:
+        """Check if an address is a local DNS stub resolver (e.g. 127.0.0.53 / loopback)."""
+        clean = address.strip()
+        try:
+            ip_obj = ipaddress.ip_address(clean)
+            return ip_obj.is_loopback
+        except ValueError:
+            return clean in ("127.0.0.53", "127.0.0.1", "localhost")
+
+    @classmethod
+    def _discover_upstream_dns_servers(
+        cls, interface: Optional[str] = None, use_mock: bool = False
+    ) -> List[DNSServerInfo]:
+        """Discover upstream DNS servers via NetworkManager per-interface associations."""
+        mapping = cls.get_interface_dns_servers(use_mock=use_mock)
+        servers: List[DNSServerInfo] = []
+        if interface and interface in mapping:
+            servers.extend(mapping[interface])
+        else:
+            for iface_servers in mapping.values():
+                servers.extend(iface_servers)
+        return servers
+
     @classmethod
     def query(
         cls,
@@ -220,8 +244,17 @@ class DNSDiagnostics:
         use_mock: bool = False,
         interface: Optional[str] = None,
         scope_guard: Optional[ScopeGuard] = None,
+        resolver: Optional[Callable[[str], List[str]]] = None,
+        strict_dns_egress: bool = False,
     ) -> DNSDiagnosticResult:
-        """Resolve host addresses safely and measure response latency."""
+        """Resolve host addresses safely and measure response latency.
+
+        Enforces strict fail-closed boundary authorization on all live DNS operations:
+        - Rejects unconfigured or unauthorized requests before initiating network queries.
+        - Authorizes both IP literals and hostnames (preventing resolution-to-use bypasses).
+        - Verifies that all resolved records returned in the result set fall within scope.
+        - Validates active system resolvers and discovered upstream servers when using local stubs.
+        """
         host_clean = host.strip()
         system_resolvers = cls.get_system_resolvers()
 
@@ -232,39 +265,80 @@ class DNSDiagnostics:
         guard = scope_guard or ScopeGuard()
 
         # Enforce that all active system resolvers used for query are authorized
-        for resolver in system_resolvers:
-            resolver_addr = resolver.address if hasattr(resolver, "address") else str(resolver)
+        for resolver_item in system_resolvers:
+            resolver_addr = resolver_item.address if hasattr(resolver_item, "address") else str(resolver_item)
             if resolver_addr == "System Default Resolver":
                 continue
             try:
                 guard.assert_authorized(resolver_addr, interface=interface)
+                if interface is not None and not cls._is_stub_resolver(resolver_addr):
+                    check_interface_route(interface, resolver_addr, use_mock=use_mock)
             except ScopeViolationError as exc:
                 raise ScopeViolationError(
                     f"DNS resolver '{resolver_addr}' is outside authorized network scope: {exc}"
                 ) from exc
 
-        # If target host is an IP, enforce scope authorization
-        is_ip = False
-        try:
-            ipaddress.ip_address(host_clean)
-            is_ip = True
-        except ValueError:
-            pass
+        # Inspect local stub resolvers (e.g. 127.0.0.53 / loopback)
+        has_stub = any(
+            cls._is_stub_resolver(r.address if hasattr(r, "address") else str(r))
+            for r in system_resolvers
+        )
+        if has_stub:
+            upstream_servers = cls._discover_upstream_dns_servers(interface=interface, use_mock=use_mock)
+            if upstream_servers:
+                for upstream in upstream_servers:
+                    try:
+                        guard.assert_authorized(upstream.address, interface=interface)
+                        if interface is not None:
+                            check_interface_route(interface, upstream.address, use_mock=use_mock)
+                    except ScopeViolationError as exc:
+                        raise ScopeViolationError(
+                            f"Discovered upstream DNS resolver '{upstream.address}' forwarded by local stub is outside authorized network scope: {exc}"
+                        ) from exc
+            elif strict_dns_egress:
+                raise ScopeViolationError(
+                    "Strict DNS egress confinement cannot be guaranteed: local stub resolver is in use "
+                    "but upstream resolvers could not be determined"
+                )
 
-        if is_ip:
-            guard.assert_authorized(host_clean, interface=interface)
+        # Pre-authorization: enforce scope guard BEFORE issuing diagnostic DNS resolution
+        # This asserts authorization on both IP literals and hostnames (using injected resolver if provided)
+        # Fails closed if guard is unconfigured, target is unauthorized, or authorization cannot be established
+        guard.assert_authorized(host_clean, interface=interface, resolver=resolver)
+
+        if interface is not None:
+            try:
+                ipaddress.ip_address(host_clean)
+                check_interface_route(interface, host_clean, use_mock=use_mock)
+            except ValueError:
+                pass
 
         start_time = time.perf_counter()
         records: List[DNSRecord] = []
 
         try:
-            # Safe standard library resolution (A and AAAA records)
-            addr_info = socket.getaddrinfo(host_clean, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
+            if resolver is not None:
+                # Controlled / injected resolution for deterministic offline verification
+                resolved_list = resolver(host_clean)
+                addr_info = [
+                    (socket.AF_INET if ":" not in ip else socket.AF_INET6, socket.SOCK_STREAM, 6, "", (ip, 0))
+                    for ip in resolved_list
+                ]
+            else:
+                # Safe standard library resolution (A and AAAA records)
+                addr_info = socket.getaddrinfo(host_clean, None, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM)
+
             elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
 
             seen_addresses = set()
             for family, _, _, _, sockaddr in addr_info:
                 ip = sockaddr[0]
+                # Enforce that EVERY resolved address returned is authorized by ScopeGuard
+                # Fail closed if any address in a multi-record answer is outside authorized scope
+                guard.assert_authorized(ip, interface=interface)
+                if interface is not None:
+                    check_interface_route(interface, ip, use_mock=use_mock)
+
                 if ip not in seen_addresses:
                     seen_addresses.add(ip)
                     record_type = "AAAA" if family == socket.AF_INET6 else "A"
@@ -277,6 +351,8 @@ class DNSDiagnostics:
                 system_resolvers=system_resolvers,
                 status="SUCCESS",
             )
+        except ScopeViolationError:
+            raise
         except socket.gaierror as exc:
             elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
             return DNSDiagnosticResult(

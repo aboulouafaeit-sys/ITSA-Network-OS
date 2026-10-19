@@ -16,10 +16,13 @@ from itsa_network_os.core.config import AppConfig
 from itsa_network_os.main import main
 from itsa_network_os.network.dns import DNSDiagnostics
 from itsa_network_os.network.latency import LatencyTester
+from itsa_network_os.network.models import DNSServerInfo
+from itsa_network_os.network.routes import RouteEntry
 from itsa_network_os.network.scope import (
     ScopeEnclosure,
     ScopeGuard,
     ScopeViolationError,
+    check_interface_route,
     get_interface_source_ip,
 )
 from itsa_network_os.security.tls import TLSInspectorEngine
@@ -714,8 +717,13 @@ class TestEngineLevelBypassPrevention(unittest.TestCase):
 
     @patch("socket.create_connection")
     @patch("itsa_network_os.network.latency.get_interface_source_ip")
-    def test_latency_tester_interface_binding_source_address(self, mock_source_ip, mock_connect) -> None:
+    @patch("itsa_network_os.network.routes.RouteParser.get_routes")
+    def test_latency_tester_interface_binding_source_address(self, mock_routes, mock_source_ip, mock_connect) -> None:
         """Verify LatencyTester binds to interface source address in live mode."""
+        from itsa_network_os.network.routes import RouteEntry
+        mock_routes.return_value = [
+            RouteEntry(destination="192.168.1.0", gateway="on-link", netmask="255.255.255.0", interface="eth0", metric=100, flags="U", family="IPv4")
+        ]
         mock_source_ip.return_value = "192.168.1.100"
         mock_sock = MagicMock()
         mock_connect.return_value = mock_sock
@@ -739,8 +747,13 @@ class TestEngineLevelBypassPrevention(unittest.TestCase):
         )
 
     @patch("itsa_network_os.network.latency.get_interface_source_ip")
-    def test_latency_tester_fails_closed_when_interface_unbound(self, mock_source_ip) -> None:
+    @patch("itsa_network_os.network.routes.RouteParser.get_routes")
+    def test_latency_tester_fails_closed_when_interface_unbound(self, mock_routes, mock_source_ip) -> None:
         """Verify LatencyTester raises ScopeViolationError if interface IP cannot be resolved."""
+        from itsa_network_os.network.routes import RouteEntry
+        mock_routes.return_value = [
+            RouteEntry(destination="192.168.1.0", gateway="on-link", netmask="255.255.255.0", interface="eth0", metric=100, flags="U", family="IPv4")
+        ]
         mock_source_ip.return_value = None
         enclosure = ScopeEnclosure.from_strings(cidrs="192.168.1.0/24", interfaces=["eth0"])
         guard = ScopeGuard(enclosure)
@@ -755,6 +768,26 @@ class TestEngineLevelBypassPrevention(unittest.TestCase):
                 scope_guard=guard,
             )
         self.assertIn("Cannot guarantee binding to authorized interface", str(ctx.exception))
+
+    @patch("itsa_network_os.network.routes.RouteParser.get_routes")
+    def test_latency_tester_fails_closed_when_route_mismatches_interface(self, mock_routes) -> None:
+        """Verify LatencyTester fails closed when kernel route directs to a different interface."""
+        from itsa_network_os.network.routes import RouteEntry
+        mock_routes.return_value = [
+            RouteEntry(destination="192.168.1.0", gateway="on-link", netmask="255.255.255.0", interface="wlan0", metric=100, flags="U", family="IPv4")
+        ]
+        enclosure = ScopeEnclosure.from_strings(cidrs="192.168.1.0/24", interfaces=["eth0"])
+        guard = ScopeGuard(enclosure)
+        with self.assertRaises(ScopeViolationError) as ctx:
+            LatencyTester.benchmark(
+                "192.168.1.50",
+                port=443,
+                count=1,
+                use_mock=False,
+                interface="eth0",
+                scope_guard=guard,
+            )
+        self.assertIn("which does not match requested interface constraint 'eth0'", str(ctx.exception))
 
 
 class TestLiveDNSDiagnosticsAuthorization(unittest.TestCase):
@@ -859,6 +892,200 @@ class TestPassiveAndOfflineUnconstrainedOperations(unittest.TestCase):
         """get_packet_lab_trace runs without requiring configured scope."""
         packets = self.app.get_packet_lab_trace()
         self.assertGreaterEqual(len(packets), 1)
+
+
+class TestTASK008FinalSecurityCorrections(unittest.TestCase):
+    """Regression test suite for TASK-008 Final Security Corrections.
+
+    Covers:
+    1. Direct live invocation with a hostname and no scope guard.
+    2. Direct live invocation with a configured guard and an unauthorized hostname.
+    3. A hostname whose resolution includes both authorized and unauthorized addresses.
+    4. Proof that unauthorized requests trigger no forbidden DNS/socket operation before rejection.
+    5. A permitted hostname in a controlled, mocked environment.
+    6. Existing IP-target authorization behavior.
+    7. Mock-mode compatibility without live network access.
+    8. Deterministic preflight route check for interface egress.
+    9. Local loopback stub resolvers and upstream resolver validation.
+    """
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    def test_live_hostname_no_scope_guard_fails_closed(self, mock_resolvers) -> None:
+        """Requirement 2.1: Direct live invocation with a hostname and no scope guard fails closed."""
+        mock_resolvers.return_value = ["127.0.0.1"]
+        with self.assertRaises(ScopeViolationError) as ctx:
+            DNSDiagnostics.query("example.com", use_mock=False, scope_guard=None)
+        self.assertIn("No authorized network scope has been configured", str(ctx.exception))
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    def test_live_hostname_unauthorized_fails_closed(self, mock_resolvers) -> None:
+        """Requirement 2.2: Direct live invocation with a configured guard and unauthorized hostname fails closed."""
+        mock_resolvers.return_value = ["192.168.1.1"]
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+        mock_resolver = lambda h: ["93.184.216.34"]
+        with self.assertRaises(ScopeViolationError) as ctx:
+            DNSDiagnostics.query("example.com", use_mock=False, scope_guard=guard, resolver=mock_resolver)
+        self.assertIn("outside user-authorized network scope", str(ctx.exception))
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    def test_live_hostname_mixed_resolution_fails_closed(self, mock_resolvers) -> None:
+        """Requirement 2.3: Hostname resolving to both authorized and unauthorized addresses fails closed."""
+        mock_resolvers.return_value = ["192.168.1.1"]
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+        mock_resolver = lambda h: ["192.168.1.10", "8.8.8.8"]
+        with self.assertRaises(ScopeViolationError) as ctx:
+            DNSDiagnostics.query("dual.local", use_mock=False, scope_guard=guard, resolver=mock_resolver)
+        self.assertIn("outside user-authorized network scope", str(ctx.exception))
+
+    @patch("socket.getaddrinfo")
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    def test_unauthorized_requests_trigger_no_socket_operations(self, mock_resolvers, mock_gai) -> None:
+        """Requirement 2.4: Proof that unauthorized requests trigger no forbidden DNS/socket operations before rejection."""
+        mock_resolvers.return_value = ["192.168.1.1"]
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+
+        # Case A: Live query with unconfigured guard
+        with self.assertRaises(ScopeViolationError):
+            DNSDiagnostics.query("example.com", use_mock=False, scope_guard=ScopeGuard())
+        mock_gai.assert_not_called()
+
+        # Case B: Live query targeting unauthorized IP
+        with self.assertRaises(ScopeViolationError):
+            DNSDiagnostics.query("8.8.8.8", use_mock=False, scope_guard=guard)
+        mock_gai.assert_not_called()
+
+        # Case C: Live query with unauthorized resolver
+        mock_resolvers.return_value = ["1.1.1.1"]
+        with self.assertRaises(ScopeViolationError):
+            DNSDiagnostics.query("192.168.1.50", use_mock=False, scope_guard=guard)
+        mock_gai.assert_not_called()
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    def test_permitted_hostname_controlled_environment(self, mock_resolvers) -> None:
+        """Requirement 2.5: Permitted hostname succeeds in controlled mock environment without network."""
+        mock_resolvers.return_value = ["192.168.1.1"]
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+        mock_resolver = lambda h: ["192.168.1.50"]
+        result = DNSDiagnostics.query("router.local", use_mock=False, scope_guard=guard, resolver=mock_resolver)
+        self.assertEqual(result.status, "SUCCESS")
+        self.assertEqual(result.target_host, "router.local")
+        self.assertEqual(len(result.records), 1)
+        self.assertEqual(result.records[0].value, "192.168.1.50")
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    @patch("socket.getaddrinfo")
+    def test_existing_ip_target_authorization_behavior(self, mock_gai, mock_resolvers) -> None:
+        """Requirement 2.6: Existing IP target authorization behavior is preserved."""
+        mock_resolvers.return_value = ["192.168.1.1"]
+        mock_gai.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.50", 0))
+        ]
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+
+        # In-scope IP succeeds
+        res = DNSDiagnostics.query("192.168.1.50", use_mock=False, scope_guard=guard)
+        self.assertEqual(res.status, "SUCCESS")
+
+        # Out-of-scope IP fails closed
+        with self.assertRaises(ScopeViolationError):
+            DNSDiagnostics.query("10.0.0.1", use_mock=False, scope_guard=guard)
+
+    def test_mock_mode_compatibility_without_live_network(self) -> None:
+        """Requirement 2.7: Mock mode compatibility without live network access or scope guard."""
+        res = DNSDiagnostics.query("anyhost.example.com", use_mock=True)
+        self.assertEqual(res.status, "SUCCESS")
+        self.assertGreater(len(res.records), 0)
+
+    def test_check_interface_route_matching_interface_succeeds(self) -> None:
+        """Requirement 3.1: Preflight route check succeeds when kernel route points to requested interface."""
+        routes = [
+            RouteEntry(destination="192.168.1.0", gateway="on-link", netmask="255.255.255.0", interface="eth0", metric=100, flags="U", family="IPv4"),
+            RouteEntry(destination="default", gateway="10.0.0.1", netmask="0.0.0.0", interface="wlan0", metric=600, flags="UG", family="IPv4"),
+        ]
+        # 192.168.1.50 matches eth0 subnet route
+        check_interface_route("eth0", "192.168.1.50", routes=routes)
+
+    def test_check_interface_route_mismatched_interface_fails_closed(self) -> None:
+        """Requirement 3.2: Preflight route check fails closed when kernel route directs to different interface."""
+        routes = [
+            RouteEntry(destination="192.168.1.0", gateway="on-link", netmask="255.255.255.0", interface="eth0", metric=100, flags="U", family="IPv4"),
+        ]
+        with self.assertRaises(ScopeViolationError) as ctx:
+            check_interface_route("wlan0", "192.168.1.50", routes=routes)
+        self.assertIn("which does not match requested interface constraint 'wlan0'", str(ctx.exception))
+
+    def test_check_interface_route_longest_prefix_match(self) -> None:
+        """Requirement 3.3: Preflight route check honors longest prefix match over default route."""
+        routes = [
+            RouteEntry(destination="default", gateway="10.0.0.1", netmask="0.0.0.0", interface="eth0", metric=100, flags="UG", family="IPv4"),
+            RouteEntry(destination="10.20.0.0", gateway="on-link", netmask="255.255.0.0", interface="eth1", metric=200, flags="U", family="IPv4"),
+        ]
+        # Target 10.20.1.5 matches /16 on eth1 (longer prefix than /0 default on eth0)
+        check_interface_route("eth1", "10.20.1.5", routes=routes)
+        # Requesting eth0 for 10.20.1.5 must fail closed
+        with self.assertRaises(ScopeViolationError):
+            check_interface_route("eth0", "10.20.1.5", routes=routes)
+
+    def test_check_interface_route_metric_tie_breaking(self) -> None:
+        """Requirement 3.4: Preflight route check honors lower metric when prefix lengths are identical."""
+        routes = [
+            RouteEntry(destination="default", gateway="192.168.1.1", netmask="0.0.0.0", interface="eth0", metric=100, flags="UG", family="IPv4"),
+            RouteEntry(destination="default", gateway="192.168.2.1", netmask="0.0.0.0", interface="wlan0", metric=600, flags="UG", family="IPv4"),
+        ]
+        # eth0 has lower metric (100 < 600)
+        check_interface_route("eth0", "8.8.8.8", routes=routes)
+        with self.assertRaises(ScopeViolationError):
+            check_interface_route("wlan0", "8.8.8.8", routes=routes)
+
+    def test_check_interface_route_ipv6_support(self) -> None:
+        """Requirement 3.5: Preflight route check supports IPv6 routes and prefix matching."""
+        routes = [
+            RouteEntry(destination="2001:db8::/32", gateway="on-link", netmask="::/32", interface="eth0", metric=256, flags="U", family="IPv6"),
+            RouteEntry(destination="default", gateway="fe80::1", netmask="::/0", interface="wlan0", metric=1024, flags="UG", family="IPv6"),
+        ]
+        check_interface_route("eth0", "2001:db8::1", routes=routes)
+        with self.assertRaises(ScopeViolationError):
+            check_interface_route("wlan0", "2001:db8::1", routes=routes)
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_interface_dns_servers")
+    def test_loopback_stub_with_unauthorized_upstream_fails_closed(self, mock_iface_dns, mock_resolvers) -> None:
+        """Requirement 4.1: Loopback stub resolver (127.0.0.53) with unauthorized upstream fails closed."""
+        mock_resolvers.return_value = ["127.0.0.53"]
+        mock_iface_dns.return_value = {
+            "eth0": [DNSServerInfo(address="8.8.8.8", scope="interface", interface="eth0")]
+        }
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+        with self.assertRaises(ScopeViolationError) as ctx:
+            DNSDiagnostics.query("192.168.1.50", use_mock=False, scope_guard=guard)
+        self.assertIn("Discovered upstream DNS resolver '8.8.8.8'", str(ctx.exception))
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_interface_dns_servers")
+    @patch("socket.getaddrinfo")
+    def test_loopback_stub_with_authorized_upstream_succeeds(self, mock_gai, mock_iface_dns, mock_resolvers) -> None:
+        """Requirement 4.2: Loopback stub resolver with authorized upstream resolver succeeds."""
+        mock_resolvers.return_value = ["127.0.0.53"]
+        mock_iface_dns.return_value = {
+            "eth0": [DNSServerInfo(address="192.168.1.1", scope="interface", interface="eth0")]
+        }
+        mock_gai.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.50", 0))
+        ]
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+        result = DNSDiagnostics.query("192.168.1.50", use_mock=False, scope_guard=guard)
+        self.assertEqual(result.status, "SUCCESS")
+
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_system_resolvers")
+    @patch("itsa_network_os.network.dns.DNSDiagnostics.get_interface_dns_servers")
+    def test_loopback_stub_strict_egress_fails_closed_when_upstream_unknown(self, mock_iface_dns, mock_resolvers) -> None:
+        """Requirement 4.3: Strict DNS egress mode fails closed if local stub is used but upstream cannot be discovered."""
+        mock_resolvers.return_value = ["127.0.0.53"]
+        mock_iface_dns.return_value = {}  # No upstream servers found
+        guard = ScopeGuard(ScopeEnclosure.from_strings(cidrs="192.168.1.0/24"))
+        with self.assertRaises(ScopeViolationError) as ctx:
+            DNSDiagnostics.query("192.168.1.50", use_mock=False, scope_guard=guard, strict_dns_egress=True)
+        self.assertIn("Strict DNS egress confinement cannot be guaranteed", str(ctx.exception))
 
 
 if __name__ == "__main__":

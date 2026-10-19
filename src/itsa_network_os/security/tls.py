@@ -107,8 +107,16 @@ class TLSInspectorEngine:
         target_ip: str,
         interface: Optional[str] = None,
     ) -> TLSInspectionReport:
-        """Perform real non-destructive TLS client handshake (read-only)."""
-        from itsa_network_os.network.scope import ScopeViolationError, get_interface_source_ip
+        """Perform real non-destructive TLS client handshake (read-only).
+
+        Note on TLS SNI and Verification:
+        Transmits TLS Server Name Indication (SNI) via server_hostname=host for proper
+        virtual hosting negotiation during inspection. Intentionally sets verify_mode =
+        ssl.CERT_NONE and check_hostname = False to inspect and grade internal, self-signed,
+        or expired certificates on network devices (e.g. routers, cameras). Does NOT
+        validate certificate trust chains against public CA root stores.
+        """
+        from itsa_network_os.network.scope import ScopeViolationError, check_interface_route, get_interface_source_ip
 
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
@@ -120,6 +128,11 @@ class TLSInspectorEngine:
         sock.settimeout(3.5)
 
         if interface is not None:
+            try:
+                check_interface_route(interface, target_ip)
+            except ScopeViolationError:
+                sock.close()
+                raise
             source_ip = get_interface_source_ip(interface, target_ip)
             if source_ip is None:
                 sock.close()

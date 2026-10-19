@@ -63,17 +63,22 @@ All Level 2 active network operations (TCP latency benchmarks, TLS handshakes, l
    - An unconfigured `ScopeGuard` or empty `ScopeEnclosure` strictly denies all active network operations and raises `ScopeViolationError`.
    - `clear()` resets the guard to an empty default-deny enclosure (`cidrs=()`, `allow_loopback=False`).
    - Passive local operations (interface inspection, subnet calculation, routing table view, packet lab, offline mock mode) operate unhindered without requiring scope configuration.
-2. **Mandatory Interface Attribution:**
+2. **Mandatory Interface Attribution & Preflight Route Verification:**
    - When a scope enclosure specifies interface constraints (`--scope-interface <IFACE>`), active operations without explicit interface attribution (`interface=None`) or targeting unapproved interfaces fail closed.
+   - Sockets bind to the authorized interface's local IP via `source_address` without requiring `CAP_NET_RAW` / root privileges. Because Linux implements a weak host model where egress is determined by destination routing, `check_interface_route` performs a preflight kernel FIB evaluation (longest prefix match and metric) to verify route alignment with the requested interface, failing closed on mismatch.
+   - *Limitation:* Preflight verification validates routing at check time; without privileged `SO_BINDTODEVICE`, concurrent route changes could alter physical egress. Absolute physical interface confinement is not claimed.
    - `--scope-interface` specified without `--scope` is rejected immediately on the CLI with exit code `1`.
-3. **Unprivileged Interface Binding:**
-   - Sockets bind to the authorized interface's local IP via `source_address` without requiring `CAP_NET_RAW` / root privileges. If no compatible local IP exists on the interface, the operation fails closed with `ScopeViolationError`.
-4. **Engine-Level Gating & Bypass Prevention:**
+3. **Engine-Level Gating & Bypass Prevention:**
    - Active diagnostic engines (`LatencyTester`, `TLSInspectorEngine`, `DNSDiagnostics`) mandate an authorized `ScopeGuard` in live mode and reject unconfigured calls prior to socket creation or DNS resolution.
-5. **Resolution-to-Connection Integrity:**
-   - Hostnames are resolved once and all resolved IPs verified against the authorized enclosure. Sockets connect strictly to the verified IP, preventing DNS rebinding attacks while preserving TLS SNI and certificate validation.
+   - In `DNSDiagnostics.query`, target authorization is enforced before resolution for both hostname targets and IP literals. Furthermore, every address in multi-record DNS query results is verified against the authorized enclosure, failing closed if any resolved record is out-of-scope.
+4. **Resolution-to-Connection Integrity & TLS Inspection:**
+   - Hostnames are resolved once and all resolved IPs verified against the authorized enclosure. Sockets connect strictly to the verified IP, preventing DNS rebinding attacks while preserving virtual-host TLS SNI transmission (`server_hostname=host`).
+   - *TLS Inspection:* Sends SNI for virtual-host negotiation, but intentionally sets `verify_mode = ssl.CERT_NONE` to inspect and grade internal, self-signed, or expired certificates on network hardware. It does not validate certificate chains against public CA roots.
+5. **Local DNS Stub Forwarding Limitations:**
+   - Local stub resolvers (e.g. `127.0.0.53`) forward queries upstream outside application socket control; checking a loopback stub address does not prove upstream queries remain in-scope.
+   - Discovered upstream resolvers (via NetworkManager) are validated against scope policy. In strict DNS egress mode (`strict_dns_egress=True`), queries fail closed if a local stub is present and upstream resolvers cannot be determined.
 6. **Supernet & Unicast Target Restriction:**
-   - Broad supernets (IPv4 `< 8`, IPv6 `< 7`, and `== 0`) are prohibited without explicit `allow_global_internet=True`.
+   - Broad prefix restrictions (IPv4 `< 8`, IPv6 `< 7`, and `== 0`) are scope-size rules prohibiting massive supernets that risk internet-wide scanning; they are not RFC 1918 or ULA classifications. Public subnets within allowed prefix bounds (e.g. `8.8.8.0/24`) are permitted.
    - Subnet network (.0) and broadcast (.255) addresses for prefixes $\le 30$ are ineligible for active unicast connections, while RFC 3021 `/31` and `/32` remain permitted.
 
 ---
@@ -87,7 +92,7 @@ All Level 2 active network operations (TCP latency benchmarks, TLS handshakes, l
 | **Credential Leakage in Logs** | Cleartext passwords from RTSP URLs or configs written to disk. | Automated regex masking in `SanitizingFilter` across all logging handlers. |
 | **Rogue Network Overload** | Diagnostic probes causing packet storms or triggering IDS/IPS alerts. | Hard rate limits on latency probes, configurable sample counts, zero blind port flooding. |
 | **Privilege Escalation Vulnerability** | Exploitation of unprivileged-to-root execution pathways. | Architecture adheres strictly to non-root execution; GUI and CLI operate as regular user. |
-| **Out-of-Scope Active Probing / DNS Rebinding** | Probing unauthorized IP addresses, accidental WAN scanning, or DNS rebinding bypasses. | Fail-closed `ScopeGuard`, strict CIDR containment, supernet prohibitions, and single-resolution verified IP binding (ADR-010). |
+| **Out-of-Scope Active Probing / DNS Rebinding** | Probing unauthorized IP addresses, accidental WAN scanning, or DNS rebinding bypasses. | Fail-closed `ScopeGuard`, strict CIDR containment, supernet size prohibitions, route preflight, and single-resolution verified IP binding (ADR-010). |
 
 ---
 

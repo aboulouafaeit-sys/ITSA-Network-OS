@@ -8,7 +8,12 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from itsa_network_os.network.scope import ScopeGuard, ScopeViolationError, get_interface_source_ip
+from itsa_network_os.network.scope import (
+    ScopeGuard,
+    ScopeViolationError,
+    check_interface_route,
+    get_interface_source_ip,
+)
 
 
 @dataclass(frozen=True)
@@ -78,6 +83,7 @@ class LatencyTester:
 
         source_address: Optional[Tuple[str, int]] = None
         if interface is not None:
+            check_interface_route(interface, target_ip, use_mock=use_mock)
             source_ip = get_interface_source_ip(interface, target_ip)
             if source_ip is None:
                 raise ScopeViolationError(

@@ -28,7 +28,9 @@ class ScopeEnclosure:
         interfaces: Tuple of validated local network interfaces allowed for discovery.
         allow_loopback: If True (default), permits 127.0.0.1 and ::1 for local diagnostics.
         allow_global_internet: If False (default), prohibits overly broad prefixes
-            (IPv4 prefixlen < 8, IPv6 prefixlen < 7, and prefixlen == 0).
+            (IPv4 prefixlen < 8, IPv6 prefixlen < 7, and prefixlen == 0). These are scope-size
+            rules designed to prevent internet-wide scanning, not RFC 1918 or ULA classifications;
+            public subnets meeting prefix-length limits (e.g. 8.8.8.0/24) are permitted.
     """
 
     cidrs: Tuple[Union[ipaddress.IPv4Network, ipaddress.IPv6Network], ...] = ()
@@ -403,7 +405,14 @@ class ScopeGuard:
 
 
 def get_interface_source_ip(interface_name: str, target_ip: str) -> Optional[str]:
-    """Find local IP address assigned to interface matching the target address family."""
+    """Find local IP address assigned to interface matching the target address family.
+
+    Note on Linux Weak Host Routing:
+    Binding source_address to an interface's local IP assigns the source IP header
+    of outgoing packets, but does not by itself force physical egress through that
+    interface when Linux weak host routing directs traffic based on destination FIB lookups.
+    Use check_interface_route to verify routing table alignment at preflight.
+    """
     from itsa_network_os.network.inspector import HostNetworkProvider
 
     try:
@@ -423,3 +432,95 @@ def get_interface_source_ip(interface_name: str, target_ip: str) -> Optional[str
     except Exception:
         pass
     return None
+
+
+def check_interface_route(
+    interface_name: str,
+    target_ip: str,
+    use_mock: bool = False,
+    routes: Optional[List[Any]] = None,
+) -> None:
+    """Preflight check validating kernel route to target_ip aligns with interface_name.
+
+    Performs longest-prefix-match (and metric tie-breaking) across IPv4/IPv6 routing tables.
+    Fails closed with ScopeViolationError if:
+    - target_ip is invalid or cannot be parsed.
+    - No matching kernel route exists.
+    - The winning route directs traffic through an interface other than interface_name.
+
+    Guarantees and Platform Limitations:
+    On Linux, unprivileged sockets adhere to the weak host routing model (RFC 1122).
+    Binding source_address alone sets the source IP header but does NOT force egress
+    through the physical interface associated with that IP if the kernel routing
+    table directs the packet elsewhere.
+    This unprivileged preflight check verifies that kernel routes currently match the
+    requested interface at check time. However, it cannot guarantee physical interface
+    confinement against concurrent route changes (TOCTOU) or complex policy routing,
+    and unprivileged processes cannot use SO_BINDTODEVICE (which requires CAP_NET_RAW / root).
+    """
+    from itsa_network_os.network.routes import RouteParser
+
+    clean_target = str(target_ip).strip()
+    try:
+        target_obj = ipaddress.ip_address(clean_target)
+    except ValueError as exc:
+        raise ScopeViolationError(
+            f"Target '{clean_target}' is not a valid IP address for route preflight: {exc}"
+        ) from exc
+
+    target_family = "IPv4" if isinstance(target_obj, ipaddress.IPv4Address) else "IPv6"
+
+    if routes is None:
+        routes = RouteParser.get_routes(use_mock=use_mock, family=target_family)
+
+    matching_routes: List[Tuple[int, int, Any]] = []
+
+    for route in routes:
+        if getattr(route, "family", "IPv4") != target_family:
+            continue
+
+        dest = str(getattr(route, "destination", "")).strip()
+        netmask = str(getattr(route, "netmask", "")).strip()
+
+        try:
+            if target_family == "IPv4":
+                if dest == "default":
+                    network = ipaddress.IPv4Network("0.0.0.0/0")
+                elif "/" in dest:
+                    network = ipaddress.IPv4Network(dest, strict=False)
+                elif netmask and netmask != "0.0.0.0":
+                    network = ipaddress.IPv4Network(f"{dest}/{netmask}", strict=False)
+                else:
+                    network = ipaddress.IPv4Network(f"{dest}/32")
+            else:
+                if dest == "default":
+                    network = ipaddress.IPv6Network("::/0")
+                elif "/" in dest:
+                    network = ipaddress.IPv6Network(dest, strict=False)
+                elif netmask and netmask.startswith("::/"):
+                    prefix = netmask.split("/")[1]
+                    network = ipaddress.IPv6Network(f"{dest}/{prefix}", strict=False)
+                else:
+                    network = ipaddress.IPv6Network(f"{dest}/128")
+
+            if target_obj in network:
+                metric = int(getattr(route, "metric", 0))
+                matching_routes.append((network.prefixlen, -metric, route))
+        except (ValueError, Exception):
+            continue
+
+    if not matching_routes:
+        raise ScopeViolationError(
+            f"No kernel route found for target IP '{clean_target}'; cannot establish interface egress constraint for '{interface_name}'"
+        )
+
+    # Sort: longest prefix match first, lowest metric tie-breaker
+    matching_routes.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    best_route = matching_routes[0][2]
+
+    if best_route.interface != interface_name:
+        raise ScopeViolationError(
+            f"Kernel routing table directs traffic for '{clean_target}' via interface '{best_route.interface}', "
+            f"which does not match requested interface constraint '{interface_name}'"
+        )
+
