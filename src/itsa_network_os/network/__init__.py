@@ -14,6 +14,8 @@ from itsa_network_os.network.latency import (
 )
 from itsa_network_os.network.models import (
     DNSServerInfo,
+    EvidenceProtocol,
+    EvidenceRecord,
     GatewayInfo,
     InterfaceState,
     InterfaceType,
@@ -72,6 +74,8 @@ __all__ = [
     "IPAddressInfo",
     "GatewayInfo",
     "DNSServerInfo",
+    "EvidenceProtocol",
+    "EvidenceRecord",
     "NetworkInterface",
     "SubnetCalculationResult",
     "SubnetCalculator",

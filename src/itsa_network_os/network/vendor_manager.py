@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from itsa_network_os.network.models import EvidenceProtocol, EvidenceRecord
+
 
 class DeviceCategory(str, Enum):
     """Categorization for discovered network hardware and surveillance units."""
@@ -95,6 +97,7 @@ class ManagedDevice:
     camera_info: Optional[CameraTelemetry] = None
     wireless_info: Optional[WirelessLinkTelemetry] = None
     router_info: Optional[RouterOSTelemetry] = None
+    evidence: List[EvidenceRecord] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
@@ -106,6 +109,7 @@ class ManagedDevice:
             data["wireless_info"] = self.wireless_info.to_dict()
         if self.router_info:
             data["router_info"] = self.router_info.to_dict()
+        data["evidence"] = [e.to_dict() for e in self.evidence]
         return data
 
 
@@ -155,6 +159,32 @@ class VendorManagerEngine:
                     has_default_credentials=False,
                     ptz_supported=False,
                 ),
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.ONVIF,
+                        timestamp="2026-10-19T12:00:00+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="device_identity",
+                        details="Verified via ONVIF WS-Discovery ProbeMatch (UDP 3702)",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.RTSP,
+                        timestamp="2026-10-19T12:00:01+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="camera_info",
+                        details="Verified RTSP DESCRIBE stream parameters on port 554",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.HTTP,
+                        timestamp="2026-10-19T12:00:02+00:00",
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="model",
+                        details="Inferred model DS-2CD2143G2-I from web interface title",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="CAM-02",
@@ -181,6 +211,24 @@ class VendorManagerEngine:
                     has_default_credentials=True,
                     ptz_supported=True,
                 ),
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.ONVIF,
+                        timestamp="2026-10-19T12:00:05+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="device_identity",
+                        details="Verified Dahua PTZ responder on ONVIF port 80",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MOCK,
+                        timestamp="2026-10-19T12:00:00+00:00",
+                        confidence=0.75,
+                        is_verified_fact=False,
+                        attribute="security_status",
+                        details="Inferred default credentials based on factory port behavior",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="MIK-01",
@@ -203,6 +251,24 @@ class VendorManagerEngine:
                     active_interfaces=5,
                     active_leases=24,
                 ),
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp="2026-10-19T12:00:10+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="router_info",
+                        details="Verified MikroTik Neighbor Discovery packet on UDP 5678",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.ARP,
+                        timestamp="2026-10-19T12:00:00+00:00",
+                        confidence=0.90,
+                        is_verified_fact=False,
+                        attribute="vendor",
+                        details="Inferred vendor MikroTik from MAC OUI prefix 6C:3B:6B",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="MIK-02",
@@ -225,6 +291,16 @@ class VendorManagerEngine:
                     active_interfaces=26,
                     active_leases=0,
                 ),
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp="2026-10-19T12:00:12+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="router_info",
+                        details="Verified MikroTik CRS326 switch telemetry via MNDP",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="UBNT-01",
@@ -250,6 +326,24 @@ class VendorManagerEngine:
                     channel_width_mhz=40,
                     wireless_mode="Access Point PtP (airMAX AC)",
                 ),
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol="UBNT Discovery",
+                        timestamp="2026-10-19T12:00:20+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="wireless_info",
+                        details="Verified Ubiquiti airMAX discovery broadcast on UDP 10001",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.SNMP,
+                        timestamp="2026-10-19T12:00:21+00:00",
+                        confidence=0.80,
+                        is_verified_fact=False,
+                        attribute="firmware_version",
+                        details="Estimated firmware version from standard sysDescr",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="UBNT-02",
@@ -263,6 +357,16 @@ class VendorManagerEngine:
                 discovery_protocol="UBNT Discovery (UDP 10001)",
                 security_status=DeviceSecurityStatus.SECURE,
                 security_notes=["Managed via UniFi Network Controller", "Band steering enabled", "WPA3 Transition active"],
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol="UBNT Discovery",
+                        timestamp="2026-10-19T12:00:25+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="device_identity",
+                        details="Verified UniFi AP beacon response",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="TPL-01",
@@ -291,6 +395,24 @@ class VendorManagerEngine:
                     channel_width_mhz=20,
                     wireless_mode="Station Client (WDS)",
                 ),
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol="TDDP / Pharos Discovery",
+                        timestamp="2026-10-19T12:00:30+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="wireless_info",
+                        details="Verified TP-Link TDDP discovery broadcast",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MOCK,
+                        timestamp="2026-10-19T12:00:00+00:00",
+                        confidence=0.60,
+                        is_verified_fact=False,
+                        attribute="security_notes",
+                        details="Heuristic CVE vulnerability correlation",
+                    ),
+                ],
             ),
             ManagedDevice(
                 device_id="SRV-01",
@@ -304,6 +426,32 @@ class VendorManagerEngine:
                 discovery_protocol="mDNS / Avahi & SSH Protocol",
                 security_status=DeviceSecurityStatus.SECURE,
                 security_notes=["UFW firewall active", "Fail2ban monitoring SSH port", "Unattended upgrades enabled"],
+                evidence=[
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MDNS,
+                        timestamp="2026-10-19T12:00:35+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="device_identity",
+                        details="Verified mDNS / Avahi service announcement on UDP 5353",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.TLS,
+                        timestamp="2026-10-19T12:00:36+00:00",
+                        confidence=1.0,
+                        is_verified_fact=True,
+                        attribute="security_notes",
+                        details="Verified TLS X.509 server certificate on port 443",
+                    ),
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.HTTP,
+                        timestamp="2026-10-19T12:00:37+00:00",
+                        confidence=0.70,
+                        is_verified_fact=False,
+                        attribute="firmware_version",
+                        details="Inferred Linux kernel version from Server HTTP response banner",
+                    ),
+                ],
             ),
         ]
 

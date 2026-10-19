@@ -41,12 +41,12 @@ This roadmap outlines the systematic development of ITSA Network OS from its mod
 
 ## 4. Milestone 2: Evidence-Based Network Intelligence & Discovery (`MILE-02`)
 
-**Status:** `PLANNED`  
+**Status:** `IN_PROGRESS`  
 **Focus:** Refactor multi-vendor discovery and wireless analysis to enforce evidence attribution, eliminate silent mock fallback, and implement passive broadcast listeners.
 
 | Task ID | Task Description | Dependencies | Status | Acceptance Criteria |
 |---|---|---|---|---|
-| **TASK-007** | Evidence Data Model & Confidence Scoring | TASK-003 | `PLANNED` | Implement `EvidenceRecord` attaching source protocol, timestamp, confidence (0.0-1.0), and `is_verified_fact` flag. |
+| **TASK-007** | Evidence Data Model & Confidence Scoring | TASK-003 | `COMPLETED` | Implement `EvidenceRecord` attaching source protocol, timestamp, confidence (0.0-1.0), and `is_verified_fact` flag. |
 | **TASK-008** | Authorized Network Scope Enclosure | TASK-007 | `PLANNED` | Enforce CIDR boundaries preventing active queries outside user-approved target networks. |
 | **TASK-009** | Passive MNDP & ONVIF Broadcast Listeners | TASK-007 | `PLANNED` | Implement real unprivileged UDP broadcast listeners for MikroTik MNDP (UDP 5678) and ONVIF WS-Discovery (UDP 3702). |
 | **TASK-010** | Elimination of Silent Mock Fallback | TASK-009 | `PLANNED` | Clearly indicate in UI/CLI when live discovery returns 0 results vs. simulated mock fixtures. |

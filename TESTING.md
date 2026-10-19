@@ -53,6 +53,7 @@ tests/
     ├── test_bandwidth.py         # /proc/net/dev parser, rate formatting, delta calculations
     ├── test_config.py            # Configuration defaults, JSON parsing, immutability
     ├── test_dns.py               # socket.getaddrinfo DNS resolution, resolver detection
+    ├── test_evidence.py          # EvidenceRecord, confidence boundaries, and ManagedDevice integration
     ├── test_gui.py               # PySide6 MainWindow, 14 tabs, offscreen event handling
     ├── test_health.py            # Host CPU, memory, storage health evaluation
     ├── test_inspector.py         # NetworkInterface models, Mock/Host providers

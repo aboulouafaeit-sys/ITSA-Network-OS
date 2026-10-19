@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -154,3 +156,126 @@ class SubnetCalculationResult:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+
+class EvidenceProtocol(str, Enum):
+    """Network observation protocols and evidence acquisition sources."""
+
+    MNDP = "MNDP"
+    ONVIF = "ONVIF"
+    ARP = "ARP"
+    MDNS = "mDNS"
+    LLDP = "LLDP"
+    CDP = "CDP"
+    TLS = "TLS"
+    DHCP = "DHCP"
+    SNMP = "SNMP"
+    HTTP = "HTTP"
+    RTSP = "RTSP"
+    MOCK = "MOCK"
+
+
+@dataclass(frozen=True)
+class EvidenceRecord:
+    """Attribution metadata for discovered network intelligence and device telemetry.
+
+    Distinguishes verified technical facts (e.g. cryptographic handshakes, direct protocol
+    responses) from algorithmic inferences (e.g. MAC OUI vendor lookups, heuristic OS guesses).
+
+    Attributes:
+        source_protocol: The protocol or observation source (e.g. "MNDP", "ONVIF", "ARP").
+            Accepts EvidenceProtocol enum members or any non-empty string for future protocols.
+        timestamp: Observation timestamp in UTC instant, stored and serialized as an ISO 8601 string.
+        confidence: Normalized confidence metric bounded between 0.0 and 1.0 inclusive.
+        is_verified_fact: True if confirmed by direct protocol/cryptographic proof, False if inferred.
+        attribute: Optional target attribute or telemetry field to which the evidence applies.
+        details: Optional human-readable or raw evidence payload details.
+    """
+
+    source_protocol: str | EvidenceProtocol
+    timestamp: str | datetime
+    confidence: float
+    is_verified_fact: bool
+    attribute: Optional[str] = None
+    details: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # Validate confidence type
+        if isinstance(self.confidence, bool) or not isinstance(self.confidence, (int, float)):
+            raise TypeError(
+                f"confidence must be a float or int, got {type(self.confidence).__name__}"
+            )
+        # Validate confidence is finite
+        if math.isnan(self.confidence) or math.isinf(self.confidence):
+            raise ValueError(
+                f"confidence must be a finite number between 0.0 and 1.0, got {self.confidence}"
+            )
+        # Validate confidence range
+        if not (0.0 <= self.confidence <= 1.0):
+            raise ValueError(
+                f"confidence must be between 0.0 and 1.0, got {self.confidence}"
+            )
+        object.__setattr__(self, "confidence", float(self.confidence))
+
+        # Validate is_verified_fact is genuinely boolean
+        if not isinstance(self.is_verified_fact, bool):
+            raise TypeError(
+                f"is_verified_fact must be a bool, got {type(self.is_verified_fact).__name__}"
+            )
+
+        # Validate and normalize source_protocol
+        if isinstance(self.source_protocol, Enum):
+            proto_val = str(self.source_protocol.value)
+        elif isinstance(self.source_protocol, str):
+            proto_val = self.source_protocol.strip()
+            if not proto_val:
+                raise ValueError("source_protocol cannot be empty or whitespace")
+        else:
+            raise TypeError(
+                f"source_protocol must be a string or Enum, got {type(self.source_protocol).__name__}"
+            )
+        object.__setattr__(self, "source_protocol", proto_val)
+
+        # Validate and normalize timestamp
+        if not isinstance(self.timestamp, (str, datetime)):
+            raise TypeError(
+                f"timestamp must be an ISO 8601 string or datetime object, got {type(self.timestamp).__name__}"
+            )
+        if isinstance(self.timestamp, str):
+            ts_str = self.timestamp.strip()
+            if not ts_str:
+                raise ValueError("timestamp cannot be empty")
+            try:
+                dt = datetime.fromisoformat(ts_str)
+            except ValueError as exc:
+                raise ValueError(f"Invalid ISO 8601 timestamp: {self.timestamp!r}") from exc
+        else:
+            dt = self.timestamp
+
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        object.__setattr__(self, "timestamp", dt.isoformat())
+
+        # Validate optional attribute and details
+        if self.attribute is not None and not isinstance(self.attribute, str):
+            raise TypeError(
+                f"attribute must be a string or None, got {type(self.attribute).__name__}"
+            )
+        if self.details is not None and not isinstance(self.details, str):
+            raise TypeError(
+                f"details must be a string or None, got {type(self.details).__name__}"
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Serialize EvidenceRecord to a JSON-compatible dictionary."""
+        return {
+            "source_protocol": self.source_protocol,
+            "timestamp": self.timestamp,
+            "confidence": self.confidence,
+            "is_verified_fact": self.is_verified_fact,
+            "attribute": self.attribute,
+            "details": self.details,
+        }
+
