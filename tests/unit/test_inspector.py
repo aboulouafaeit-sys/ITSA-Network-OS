@@ -139,6 +139,7 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         self.assertEqual(primary.netmask, "255.255.255.0")
         self.assertEqual(primary.broadcast, "192.168.10.255")
         self.assertEqual(primary.scope, "global")
+        self.assertEqual(primary.classification, "private")
         self.assertIn("dynamic", primary.flags)
 
         secondary = ipv4_addrs[1]
@@ -146,6 +147,8 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         self.assertEqual(secondary.prefix_length, 16)
         self.assertEqual(secondary.netmask, "255.255.0.0")
         self.assertEqual(secondary.broadcast, "10.0.255.255")
+        self.assertEqual(secondary.scope, "global")
+        self.assertEqual(secondary.classification, "private")
         self.assertIn("secondary", secondary.flags)
 
     def test_parse_ip_addr_json_ipv6_and_scopes(self) -> None:
@@ -155,17 +158,50 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         ipv6_addrs = [a for a in eth0.addresses if a.family == "IPv6"]
         self.assertEqual(len(ipv6_addrs), 2)
 
-        link_local = next(a for a in ipv6_addrs if a.scope == "link-local")
+        link_local = next(a for a in ipv6_addrs if a.classification == "link-local")
         self.assertEqual(link_local.address, "fe80::42:aff:fe11:2")
         self.assertEqual(link_local.prefix_length, 64)
         self.assertEqual(link_local.netmask, "ffff:ffff:ffff:ffff::")
+        self.assertEqual(link_local.scope, "link")
+        self.assertEqual(link_local.classification, "link-local")
         self.assertIsNone(link_local.broadcast)
         self.assertIn("noprefixroute", link_local.flags)
 
-        global_ipv6 = next(a for a in ipv6_addrs if a.scope == "global")
+        global_ipv6 = next(a for a in ipv6_addrs if a.classification == "global-unicast")
         self.assertEqual(global_ipv6.address, "2001:db8:85a3::8a2e:370:7334")
         self.assertEqual(global_ipv6.prefix_length, 64)
+        self.assertEqual(global_ipv6.scope, "global")
+        self.assertEqual(global_ipv6.classification, "global-unicast")
         self.assertIn("mngtmpaddr", global_ipv6.flags)
+
+    def test_eight_target_addresses_scope_and_classification(self) -> None:
+        """TASK-004A: Verify exact distinction between Linux kernel scope and RFC classification."""
+        test_matrix = [
+            # (address, raw_kernel_scope, expected_normalized_scope, expected_rfc_classification)
+            ("127.0.0.1", "host", "host", "loopback"),
+            ("10.125.191.24", "global", "global", "private"),
+            ("192.168.1.1", "global", "global", "private"),
+            ("8.8.8.8", "global", "global", "global-unicast"),
+            ("::1", "host", "host", "loopback"),
+            ("fe80::1", "link", "link", "link-local"),
+            ("fc42:5009:ba4b:5ab0::1", "global", "global", "unique-local"),
+            ("2001:4860:4860::8888", "global", "global", "global-unicast"),
+        ]
+
+        for addr, raw_scope, exp_scope, exp_class in test_matrix:
+            norm_scope = HostNetworkProvider.normalize_kernel_scope(raw_scope, addr)
+            rfc_class = HostNetworkProvider.classify_address(addr)
+
+            self.assertEqual(
+                norm_scope,
+                exp_scope,
+                f"Kernel scope mismatch for {addr}: expected '{exp_scope}', got '{norm_scope}'",
+            )
+            self.assertEqual(
+                rfc_class,
+                exp_class,
+                f"RFC classification mismatch for {addr}: expected '{exp_class}', got '{rfc_class}'",
+            )
 
     def test_multiple_addresses_on_one_interface(self) -> None:
         """Requirement 5: Support multiple IPv4 and IPv6 addresses on a single interface."""
@@ -183,6 +219,7 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         lo_v4 = next(a for a in lo.addresses if a.family == "IPv4")
         self.assertEqual(lo_v4.address, "127.0.0.1")
         self.assertEqual(lo_v4.scope, "host")
+        self.assertEqual(lo_v4.classification, "loopback")
 
         enp4s0 = next(i for i in interfaces if i.name == "enp4s0")
         self.assertEqual(len(enp4s0.addresses), 0)
@@ -201,15 +238,12 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         self.assertEqual(HostNetworkProvider.calculate_netmask("IPv4", -1), "")
         self.assertEqual(HostNetworkProvider.calculate_netmask("IPv4", 33), "")
 
-    def test_classify_ip_scope_standard_library(self) -> None:
-        """Requirement 4: Non-heuristic scope classification using ipaddress."""
+    def test_classify_ip_scope_backward_compatibility(self) -> None:
+        """Ensure backward-compatible classify_ip_scope delegates cleanly."""
         self.assertEqual(HostNetworkProvider.classify_ip_scope("127.0.0.1"), "host")
         self.assertEqual(HostNetworkProvider.classify_ip_scope("::1"), "host")
-        self.assertEqual(HostNetworkProvider.classify_ip_scope("fe80::1"), "link-local")
-        self.assertEqual(HostNetworkProvider.classify_ip_scope("fe80::dead:beef"), "link-local")
-        self.assertEqual(HostNetworkProvider.classify_ip_scope("169.254.1.1"), "link-local")
-        self.assertEqual(HostNetworkProvider.classify_ip_scope("2001:db8::1"), "global")
-        self.assertEqual(HostNetworkProvider.classify_ip_scope("invalid-ip"), "unknown")
+        self.assertEqual(HostNetworkProvider.classify_ip_scope("fe80::1"), "link")
+        self.assertEqual(HostNetworkProvider.classify_ip_scope("10.0.0.1"), "global")
 
     def test_parse_if_inet6_proc_content(self) -> None:
         """Deterministic parsing of Linux /proc/net/if_inet6 lines."""
@@ -226,14 +260,17 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         self.assertEqual(parsed["lo"][0].address, "::1")
         self.assertEqual(parsed["lo"][0].prefix_length, 128)
         self.assertEqual(parsed["lo"][0].scope, "host")
+        self.assertEqual(parsed["lo"][0].classification, "loopback")
 
         self.assertEqual(parsed["wlo1"][0].address, "fe80::5f3:90:9924:ef7c")
         self.assertEqual(parsed["wlo1"][0].prefix_length, 64)
-        self.assertEqual(parsed["wlo1"][0].scope, "link-local")
+        self.assertEqual(parsed["wlo1"][0].scope, "link")
+        self.assertEqual(parsed["wlo1"][0].classification, "link-local")
 
         self.assertEqual(parsed["lxcbr0"][0].address, "fc42:5009:ba4b:5ab0::1")
         self.assertEqual(parsed["lxcbr0"][0].prefix_length, 64)
         self.assertEqual(parsed["lxcbr0"][0].scope, "global")
+        self.assertEqual(parsed["lxcbr0"][0].classification, "unique-local")
 
     def test_missing_or_malformed_kernel_data(self) -> None:
         """Requirement 7: Graceful error handling on malformed JSON or corrupted lines."""
@@ -253,6 +290,7 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
             netmask="255.255.255.0",
             broadcast="192.168.1.255",
             scope="global",
+            classification="private",
             flags=["dynamic"],
         )
         data = info.to_dict()
@@ -262,11 +300,13 @@ class TestHostNetworkAddressParsing(unittest.TestCase):
         self.assertEqual(data["netmask"], "255.255.255.0")
         self.assertEqual(data["broadcast"], "192.168.1.255")
         self.assertEqual(data["scope"], "global")
+        self.assertEqual(data["classification"], "private")
         self.assertEqual(data["flags"], ["dynamic"])
 
         # Test JSON round-trip
         json_str = json.dumps(data)
         self.assertIn('"broadcast": "192.168.1.255"', json_str)
+        self.assertIn('"classification": "private"', json_str)
 
 
 class TestHostNetworkProviderLiveIntegration(unittest.TestCase):
@@ -290,7 +330,7 @@ class TestHostNetworkProviderLiveIntegration(unittest.TestCase):
         v4_addrs = [a.address for a in lo.addresses if a.family == "IPv4"]
         self.assertIn("127.0.0.1", v4_addrs)
 
-        # Ensure all addresses have valid families and prefix lengths
+        # Ensure all addresses have valid families, prefix lengths, scopes, and classifications
         for iface in interfaces:
             self.assertIsInstance(iface.name, str)
             self.assertIsInstance(iface.mac_address, str)
@@ -298,6 +338,11 @@ class TestHostNetworkProviderLiveIntegration(unittest.TestCase):
                 self.assertIn(addr.family, ("IPv4", "IPv6"))
                 self.assertGreater(addr.prefix_length, 0)
                 self.assertLessEqual(addr.prefix_length, 128)
+                self.assertIsNotNone(addr.classification)
+                self.assertIn(
+                    addr.classification,
+                    ("loopback", "private", "link-local", "unique-local", "global-unicast", "site-local", "reserved"),
+                )
 
 
 if __name__ == "__main__":

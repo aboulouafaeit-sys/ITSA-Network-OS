@@ -34,7 +34,8 @@ class IPAddressInfo:
     family: str  # IPv4 or IPv6
     netmask: str = ""
     broadcast: Optional[str] = None
-    scope: Optional[str] = None
+    scope: Optional[str] = None  # Linux interface scope metadata (e.g. "global", "link", "host")
+    classification: Optional[str] = None  # RFC architectural classification (e.g. "private", "loopback", "global-unicast", "link-local", "unique-local")
     flags: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:

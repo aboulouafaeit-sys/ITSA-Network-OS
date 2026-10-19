@@ -67,34 +67,92 @@ class HostNetworkProvider:
     """Safe, strictly read-only interface and address inspector reading from Linux kernel APIs."""
 
     @classmethod
-    def classify_ip_scope(cls, addr_str: str, kernel_scope: Optional[str] = None) -> str:
-        """Classify IP address scope using standard library ipaddress and kernel attributes."""
+    def normalize_kernel_scope(cls, raw_scope: Optional[str], addr_str: Optional[str] = None) -> str:
+        """Normalize Linux kernel RT_SCOPE metadata (e.g. 'global', 'link', 'host', 'site').
+        
+        NOTE: Kernel 'scope global' denotes non-link-local routing scope within the Linux
+        network stack; it does NOT imply that the address is globally routable on the public Internet.
+        """
+        if raw_scope:
+            raw_lower = str(raw_scope).lower().strip()
+            if raw_lower in ("global", "universe"):
+                return "global"
+            if raw_lower in ("link", "link-local"):
+                return "link"
+            if raw_lower in ("host", "loopback"):
+                return "host"
+            if raw_lower in ("site", "site-local"):
+                return "site"
+            return raw_lower
+
+        if addr_str:
+            try:
+                ip_obj = ipaddress.ip_address(addr_str)
+                if ip_obj.is_loopback:
+                    return "host"
+                if ip_obj.is_link_local:
+                    return "link"
+                return "global"
+            except ValueError:
+                pass
+        return "unknown"
+
+    @classmethod
+    def classify_address(cls, addr_str: str) -> str:
+        """Classify IP address according to RFC architectural standards using standard library ipaddress.
+        
+        Distinguishes:
+            - 'loopback' for 127.0.0.0/8 and ::1
+            - 'link-local' for 169.254.0.0/16 and fe80::/10
+            - 'private' for RFC 1918 IPv4 networks (10/8, 172.16/12, 192.168/16)
+            - 'unique-local' for RFC 4193 IPv6 ULA (fc00::/7)
+            - 'global-unicast' for public globally-routable IPv4 and IPv6 unicast addresses
+            - 'site-local' for deprecated IPv6 site-local (fec0::/10)
+            - 'multicast' for IPv4 224.0.0.0/4 and IPv6 ff00::/8
+            - 'unspecified' for 0.0.0.0 and ::
+            - 'reserved' for other IETF reserved blocks
+            - 'unknown' for malformed address strings
+        """
         try:
             ip_obj = ipaddress.ip_address(addr_str)
             if ip_obj.is_loopback:
-                return "host"
+                return "loopback"
             if ip_obj.is_link_local:
                 return "link-local"
+            if ip_obj.is_multicast:
+                return "multicast"
+            if ip_obj.is_unspecified:
+                return "unspecified"
 
-            if ip_obj.version == 6:
-                if getattr(ip_obj, "is_site_local", False):
-                    return "site-local"
-                if kernel_scope:
-                    return "link-local" if kernel_scope == "link" else kernel_scope
+            if ip_obj.version == 4:
+                if ip_obj.is_private:
+                    return "private"
                 if getattr(ip_obj, "is_global", False):
-                    return "global"
-                # Check if it is a Unique Local Address (ULA) fc00::/7 (fc00:: through fdff:...)
+                    return "global-unicast"
+                return "reserved"
+            else:  # IPv6
+                # Check RFC 4193 Unique Local Address fc00::/7 (covers fc00:: through fdff:...)
                 if (ip_obj.packed[0] & 0xFE) == 0xFC:
                     return "unique-local"
-                return "global"
-            else:
-                if kernel_scope:
-                    return "link-local" if kernel_scope == "link" else kernel_scope
+                if getattr(ip_obj, "is_site_local", False):
+                    return "site-local"
                 if getattr(ip_obj, "is_global", False):
-                    return "global"
-                return "private" if ip_obj.is_private else "global"
+                    return "global-unicast"
+                # Documentation prefix 2001:db8::/32 is global unicast format in RFC 4291
+                if ip_obj.exploded.startswith("2001:0db8:"):
+                    return "global-unicast"
+                return "reserved"
         except ValueError:
-            return kernel_scope or "unknown"
+            return "unknown"
+
+    @classmethod
+    def classify_ip_scope(cls, addr_str: str, kernel_scope: Optional[str] = None) -> str:
+        """Backward-compatible scope helper.
+        
+        NOTE: Prefer using 'normalize_kernel_scope' for Linux kernel interface metadata
+        and 'classify_address' for RFC architectural classification.
+        """
+        return cls.normalize_kernel_scope(kernel_scope, addr_str)
 
     @classmethod
     def calculate_netmask(cls, family: str, prefix_len: int) -> str:
@@ -166,9 +224,9 @@ class HostNetworkProvider:
                     # Broadcast handling
                     broadcast = a.get("broadcast") if family == "IPv4" else None
 
-                    # Scope handling
-                    kernel_scope = a.get("scope")
-                    scope = cls.classify_ip_scope(local_ip, kernel_scope)
+                    # Linux kernel scope vs. RFC architectural classification
+                    kernel_scope = cls.normalize_kernel_scope(a.get("scope"), local_ip)
+                    classification = cls.classify_address(local_ip)
 
                     # Extract boolean flags
                     flag_keys = [
@@ -190,7 +248,8 @@ class HostNetworkProvider:
                             family=family,
                             netmask=netmask,
                             broadcast=broadcast,
-                            scope=scope,
+                            scope=kernel_scope,
+                            classification=classification,
                             flags=flags,
                         )
                     )
@@ -234,8 +293,9 @@ class HostNetworkProvider:
                 addr = str(ipaddress.IPv6Address(grouped))
                 prefix_len = int(prefix_hex, 16)
                 scope_code = int(scope_hex, 16)
-                kernel_scope = scope_map.get(scope_code, "unknown")
-                scope = cls.classify_ip_scope(addr, kernel_scope)
+                raw_scope = scope_map.get(scope_code, "unknown")
+                kernel_scope = cls.normalize_kernel_scope(raw_scope, addr)
+                classification = cls.classify_address(addr)
                 netmask = cls.calculate_netmask("IPv6", prefix_len)
                 flags = [f"0x{flags_hex}"]
 
@@ -245,7 +305,8 @@ class HostNetworkProvider:
                     family="IPv6",
                     netmask=netmask,
                     broadcast=None,
-                    scope=scope,
+                    scope=kernel_scope,
+                    classification=classification,
                     flags=flags,
                 )
                 result.setdefault(ifname, []).append(info)
@@ -279,7 +340,8 @@ class HostNetworkProvider:
                 broadcast = None
 
             prefix_len = ipaddress.IPv4Network(f"0.0.0.0/{netmask}").prefixlen
-            scope = cls.classify_ip_scope(addr)
+            kernel_scope = "host" if ipaddress.IPv4Address(addr).is_loopback else "global"
+            classification = cls.classify_address(addr)
 
             return [
                 IPAddressInfo(
@@ -288,7 +350,8 @@ class HostNetworkProvider:
                     family="IPv4",
                     netmask=netmask,
                     broadcast=broadcast,
-                    scope=scope,
+                    scope=kernel_scope,
+                    classification=classification,
                     flags=[],
                 )
             ]

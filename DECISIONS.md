@@ -16,6 +16,7 @@
 - **ADR-005:** Least Privilege by Default & Non-Root Execution
 - **ADR-006:** Local SQLite Storage Without External Telemetry
 - **ADR-007:** Evidence Attribution Over Unverified Device Inferences
+- **ADR-008:** Explicit Distinction Between Linux Kernel Scope and RFC Address Classification
 
 ---
 
@@ -72,3 +73,14 @@
 - **Decision:** Enforce evidence tagging on all discovered attributes: track source protocol, timestamp, confidence level, and distinguish verified facts from inferences.
 - **Rationale:** Technical decision-makers require accurate, defensible diagnostic reports.
 - **Consequences:** The discovery engine refuses to claim a model or firmware version is verified unless direct evidence (certificate, SNMP MIB, HTTP banner, ONVIF response) confirms it.
+
+---
+
+### ADR-008: Explicit Distinction Between Linux Kernel Scope and RFC Address Classification
+- **Context:** Linux network interface tooling (`iproute2`, `/proc/net/if_inet6`) attaches routing scope metadata (`RT_SCOPE`, e.g. `scope global`, `scope link`, `scope host`). In the Linux kernel, private RFC 1918 addresses (such as `10.125.191.24` and `192.168.1.1`) and IPv6 Unique Local Addresses (ULA, RFC 4193, `fc00::/7`) are assigned `scope global` to signify they route beyond the local broadcast link within the host's network. However, `scope global` does not mean the address is globally routable or reachable from the public Internet. Conflating kernel routing scope with RFC architectural address classification causes diagnostic ambiguity and false security assumptions.
+- **Decision:** Explicitly decouple Linux interface scope metadata from RFC address classification in `IPAddressInfo` and `HostNetworkProvider`:
+  - `scope`: Stores Linux kernel routing scope metadata (`"global"`, `"link"`, `"host"`, `"site"`).
+  - `classification`: Stores RFC standard address classification derived via Python standard library `ipaddress` (`"loopback"`, `"private"`, `"link-local"`, `"unique-local"`, `"global-unicast"`, `"site-local"`, `"multicast"`, `"unspecified"`, `"reserved"`).
+- **Rationale:** Preserves accurate low-level kernel metadata while providing true Internet-standard address classification without heuristic string slicing.
+- **Consequences:** All consumers have clear, unambiguous data models. Backward compatibility is maintained because `scope` continues to convey kernel routing scope, and `classification` is exposed as a typed, optional field with default `None`.
+
