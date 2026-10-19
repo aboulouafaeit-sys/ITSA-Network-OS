@@ -524,12 +524,13 @@ class HostNetworkProvider:
 
                 name = iface_dir.name
                 mac = "00:00:00:00:00:00"
+                mtu = 1500
                 state = InterfaceState.UNKNOWN
                 operstate_file = iface_dir / "operstate"
                 if operstate_file.is_file():
                     try:
                         content = operstate_file.read_text(encoding="utf-8").strip()
-                        state = cls.classify_interface_state(content)
+                        state = self.classify_interface_state(content)
                     except Exception:
                         pass
 
@@ -547,7 +548,7 @@ class HostNetworkProvider:
                     except Exception:
                         pass
 
-                if_type = cls.classify_interface_type(name)
+                if_type = self.classify_interface_type(name)
 
                 addresses: List[IPAddressInfo] = []
                 # IPv4 addresses via ioctl

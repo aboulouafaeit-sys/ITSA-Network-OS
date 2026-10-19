@@ -1038,6 +1038,19 @@ class TestHostProviderExhaustiveUnitMatrix(unittest.TestCase):
         # Invalid prefixlen (-5) results in empty netmask without throwing
         self.assertEqual(corrupt0.addresses[0].netmask, "")
 
+    def test_discover_from_proc_and_sys_execution(self) -> None:
+        """Verify _discover_from_proc_and_sys runs without NameError or UnboundLocalError."""
+        provider = HostNetworkProvider()
+        interfaces = provider._discover_from_proc_and_sys()
+        self.assertIsInstance(interfaces, list)
+        if interfaces:
+            for iface in interfaces:
+                self.assertIsInstance(iface.name, str)
+                self.assertIsInstance(iface.interface_type, InterfaceType)
+                self.assertIsInstance(iface.state, InterfaceState)
+                self.assertIsInstance(iface.mtu, int)
+                self.assertGreater(iface.mtu, 0)
+
 
 if __name__ == "__main__":
     unittest.main()
