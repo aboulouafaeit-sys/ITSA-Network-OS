@@ -84,3 +84,17 @@
 - **Rationale:** Preserves accurate low-level kernel metadata while providing true Internet-standard address classification without heuristic string slicing.
 - **Consequences:** All consumers have clear, unambiguous data models. Backward compatibility is maintained because `scope` continues to convey kernel routing scope, and `classification` is exposed as a typed, optional field with default `None`.
 
+---
+
+### ADR-009: Local Gateway and DNS Association Semantics and Provenance
+- **Context:** In multi-interface and dual-stack hosts, interfaces may have different routing roles (default gateway vs. isolated link) and differing resolver scopes (per-interface DNS from NetworkManager/systemd-resolved vs. host-wide fallback in `/etc/resolv.conf`). Conflating host-wide DNS with a specific interface or guessing default gateways based solely on IP addresses violates the evidence-based design principles of ITSA Network OS.
+- **Decision:**
+  1. Default Gateways: Associate default IPv4 and IPv6 gateways (`GatewayInfo`) strictly with the interface named by the corresponding default route (`0.0.0.0/0` or `::/0`). Never assume a gateway exists merely because an interface has an IP address. Preserve route metrics and origin protocols (`dhcp`, `ra`, `static`).
+  2. DNS Nameservers: Model DNS nameservers using `DNSServerInfo` with explicit `scope` (`"interface"` vs. `"system"`), `interface` binding, and `provenance` (`"networkmanager"`, `"systemd-resolved"`, `"resolv.conf"`, `"mock"`).
+     - Case A: When only host-wide `/etc/resolv.conf` exists, associate nameservers with interfaces holding a default route using `scope="system"`, `interface=None`, and `provenance="resolv.conf"`.
+     - Case B: When reliable OS metadata links nameservers to a specific interface, associate them using `scope="interface"` and `interface="<ifname>"`.
+     - Case C: Non-routed interfaces (e.g. `lo` or unrouted links) receive empty DNS server lists.
+- **Rationale:** Eliminates misleading associations while providing complete diagnostic context. The interface object clearly distinguishes between verified per-link nameservers and global system resolvers.
+- **Consequences:** `NetworkInterface` safely supports dual-stack default gateways and multi-nameserver resolver lists without breaking backwards compatibility or constructor signatures.
+
+

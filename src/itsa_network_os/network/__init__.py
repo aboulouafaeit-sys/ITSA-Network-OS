@@ -13,6 +13,8 @@ from itsa_network_os.network.latency import (
     LatencyTester,
 )
 from itsa_network_os.network.models import (
+    DNSServerInfo,
+    GatewayInfo,
     InterfaceState,
     InterfaceType,
     IPAddressInfo,
@@ -68,6 +70,8 @@ __all__ = [
     "InterfaceState",
     "InterfaceType",
     "IPAddressInfo",
+    "GatewayInfo",
+    "DNSServerInfo",
     "NetworkInterface",
     "SubnetCalculationResult",
     "SubnetCalculator",

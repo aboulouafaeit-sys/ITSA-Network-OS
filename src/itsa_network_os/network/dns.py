@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import ipaddress
 import socket
+import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from itsa_network_os.network.models import DNSServerInfo
 
 
 @dataclass(frozen=True)
@@ -43,7 +47,7 @@ class DNSDiagnostics:
 
     @staticmethod
     def get_system_resolvers() -> List[str]:
-        """Read system DNS resolvers from /etc/resolv.conf safely on Linux."""
+        """Read system DNS resolvers from /etc/resolv.conf safely on Linux (legacy helper)."""
         resolvers: List[str] = []
         resolv_path = Path("/etc/resolv.conf")
         if resolv_path.is_file():
@@ -60,6 +64,152 @@ class DNSDiagnostics:
         if not resolvers:
             resolvers.append("System Default Resolver")
         return resolvers
+
+    @classmethod
+    def get_system_dns_servers(
+        cls, use_mock: bool = False, resolv_content: Optional[str] = None
+    ) -> List[DNSServerInfo]:
+        """Read system-wide DNS nameservers from /etc/resolv.conf safely.
+
+        Returns DNSServerInfo entries explicitly marked with scope='system'
+        and interface=None to indicate host-level resolver configuration.
+        """
+        if use_mock:
+            return [
+                DNSServerInfo(
+                    address="1.1.1.1",
+                    scope="system",
+                    interface=None,
+                    provenance="mock",
+                ),
+                DNSServerInfo(
+                    address="1.0.0.1",
+                    scope="system",
+                    interface=None,
+                    provenance="mock",
+                ),
+            ]
+
+        servers: List[DNSServerInfo] = []
+        seen = set()
+
+        content = resolv_content
+        if content is None:
+            resolv_path = Path("/etc/resolv.conf")
+            if resolv_path.is_file():
+                try:
+                    content = resolv_path.read_text(encoding="utf-8")
+                except Exception:
+                    content = ""
+            else:
+                content = ""
+
+        if not content:
+            return []
+
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or line.startswith(";"):
+                continue
+            if line.startswith("nameserver"):
+                parts = line.split()
+                if len(parts) >= 2:
+                    ip_str = parts[1].strip()
+                    try:
+                        # Validate valid IPv4 or IPv6 address syntax
+                        ipaddress.ip_address(ip_str)
+                        if ip_str not in seen:
+                            seen.add(ip_str)
+                            servers.append(
+                                DNSServerInfo(
+                                    address=ip_str,
+                                    scope="system",
+                                    interface=None,
+                                    provenance="resolv.conf",
+                                )
+                            )
+                    except ValueError:
+                        continue
+
+        return servers
+
+    @classmethod
+    def parse_nmcli_dev_show_dns(cls, output: str) -> Dict[str, List[DNSServerInfo]]:
+        """Parse unprivileged nmcli dev show output for per-interface DNS nameservers."""
+        results: Dict[str, List[DNSServerInfo]] = {}
+        current_dev: Optional[str] = None
+
+        for line in output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            # Support both colon-separated (terse) and column-aligned formats
+            if line.startswith("GENERAL.DEVICE:"):
+                current_dev = line.split(":", 1)[1].strip()
+            elif "GENERAL.DEVICE" in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    current_dev = parts[-1].strip()
+            elif current_dev and ("IP4.DNS" in line or "IP6.DNS" in line):
+                if ":" in line:
+                    val = line.split(":", 1)[1].strip()
+                else:
+                    parts = line.split()
+                    val = parts[-1].strip() if parts else ""
+
+                if val:
+                    try:
+                        ipaddress.ip_address(val)
+                        results.setdefault(current_dev, [])
+                        if not any(d.address == val for d in results[current_dev]):
+                            results[current_dev].append(
+                                DNSServerInfo(
+                                    address=val,
+                                    scope="interface",
+                                    interface=current_dev,
+                                    provenance="networkmanager",
+                                )
+                            )
+                    except ValueError:
+                        pass
+
+        return results
+
+    @classmethod
+    def get_interface_dns_servers(
+        cls, use_mock: bool = False, raw_nmcli: Optional[str] = None
+    ) -> Dict[str, List[DNSServerInfo]]:
+        """Query operating system metadata for trustworthy per-interface DNS associations."""
+        if use_mock:
+            return {
+                "eth0": [
+                    DNSServerInfo(
+                        address="192.168.1.1",
+                        scope="interface",
+                        interface="eth0",
+                        provenance="mock",
+                    )
+                ]
+            }
+
+        if raw_nmcli is not None:
+            return cls.parse_nmcli_dev_show_dns(raw_nmcli)
+
+        try:
+            res = subprocess.run(
+                ["nmcli", "-t", "-f", "GENERAL.DEVICE,IP4.DNS,IP6.DNS", "dev", "show"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=1.5,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                return cls.parse_nmcli_dev_show_dns(res.stdout)
+        except Exception:
+            pass
+
+        return {}
 
     @classmethod
     def query(cls, host: str, timeout: float = 3.0, use_mock: bool = False) -> DNSDiagnosticResult:

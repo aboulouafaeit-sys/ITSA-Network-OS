@@ -9,12 +9,16 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol
 
+from itsa_network_os.network.dns import DNSDiagnostics
 from itsa_network_os.network.models import (
+    DNSServerInfo,
+    GatewayInfo,
     InterfaceState,
     InterfaceType,
     IPAddressInfo,
     NetworkInterface,
 )
+from itsa_network_os.network.routes import RouteParser
 
 
 class NetworkProvider(Protocol):
@@ -40,6 +44,8 @@ class MockNetworkProvider:
                     IPAddressInfo(address="127.0.0.1", prefix_length=8, family="IPv4", netmask="255.0.0.0"),
                     IPAddressInfo(address="::1", prefix_length=128, family="IPv6", netmask="ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"),
                 ],
+                gateways=[],
+                dns_servers=[],
             ),
             NetworkInterface(
                 name="eth0",
@@ -51,6 +57,13 @@ class MockNetworkProvider:
                     IPAddressInfo(address="192.168.1.105", prefix_length=24, family="IPv4", netmask="255.255.255.0"),
                     IPAddressInfo(address="fe80::42:aff:fe11:2", prefix_length=64, family="IPv6", netmask="ffff:ffff:ffff:ffff::"),
                 ],
+                gateways=[
+                    GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0", protocol="dhcp", flags=["UG"]),
+                    GatewayInfo(gateway="fe80::1", family="IPv6", metric=1024, interface="eth0", protocol="ra", flags=["UG"]),
+                ],
+                dns_servers=[
+                    DNSServerInfo(address="192.168.1.1", scope="interface", interface="eth0", provenance="mock"),
+                ],
             ),
             NetworkInterface(
                 name="wlan0",
@@ -59,6 +72,8 @@ class MockNetworkProvider:
                 interface_type=InterfaceType.WIRELESS,
                 mtu=1500,
                 addresses=[],
+                gateways=[],
+                dns_servers=[],
             ),
         ]
 
@@ -361,8 +376,72 @@ class HostNetworkProvider:
             if sock:
                 sock.close()
 
+    @classmethod
+    def associate_gateways_and_dns(
+        cls,
+        interfaces: List[NetworkInterface],
+        gateways: List[GatewayInfo],
+        interface_dns: Dict[str, List[DNSServerInfo]],
+        system_dns: List[DNSServerInfo],
+    ) -> List[NetworkInterface]:
+        """Associate discovered default gateways and DNS servers with matching interfaces.
+
+        Semantic Rules:
+            - Gateways: Associated strictly with the interface named by the default route.
+            - Case B (Interface-specific DNS): Reliable OS metadata (NetworkManager / systemd-resolved)
+              attaches DNS servers to the interface with scope='interface'.
+            - Case A (System-wide DNS): If an interface holds a default gateway and no per-interface
+              DNS exists, system-wide DNS (/etc/resolv.conf) is associated with scope='system' and
+              interface=None to honestly reflect that the resolver is global.
+            - Case C (Unknown/Unavailable): Non-routed interfaces (e.g. 'lo') or interfaces with
+              no reliable DNS association receive an empty dns_servers list.
+        """
+        gateways_by_iface: Dict[str, List[GatewayInfo]] = {}
+        for gw in gateways:
+            if gw.interface:
+                gateways_by_iface.setdefault(gw.interface, []).append(gw)
+
+        updated_interfaces: List[NetworkInterface] = []
+        for iface in interfaces:
+            iface_gws = gateways_by_iface.get(iface.name, [])
+
+            # Case B: Interface-specific DNS from reliable OS metadata
+            if iface.name in interface_dns and interface_dns[iface.name]:
+                iface_dns = interface_dns[iface.name]
+            # Case A: System-wide DNS attached to default gateway interface(s)
+            elif iface_gws and system_dns:
+                iface_dns = [
+                    DNSServerInfo(
+                        address=s.address,
+                        scope="system",
+                        interface=None,
+                        provenance=s.provenance,
+                    )
+                    for s in system_dns
+                ]
+            else:
+                # Case C: Not associated
+                iface_dns = []
+
+            updated_interfaces.append(
+                NetworkInterface(
+                    name=iface.name,
+                    mac_address=iface.mac_address,
+                    state=iface.state,
+                    interface_type=iface.interface_type,
+                    mtu=iface.mtu,
+                    addresses=iface.addresses,
+                    gateways=iface_gws,
+                    dns_servers=iface_dns,
+                )
+            )
+
+        return updated_interfaces
+
     def get_interfaces(self) -> List[NetworkInterface]:
         """Fetch list of real host network interfaces and addresses safely."""
+        interfaces: List[NetworkInterface] = []
+
         # Method 1: ip -j addr (high-fidelity JSON)
         try:
             res = subprocess.run(
@@ -374,13 +453,33 @@ class HostNetworkProvider:
             )
             if res.returncode == 0 and res.stdout.strip():
                 interfaces = self._parse_ip_addr_json(res.stdout)
-                if interfaces:
-                    return interfaces
         except Exception:
             pass
 
         # Method 2: Kernel filesystem (/sys/class/net + /proc/net/if_inet6 + ioctl)
-        return self._discover_from_proc_and_sys()
+        if not interfaces:
+            interfaces = self._discover_from_proc_and_sys()
+
+        if not interfaces:
+            return []
+
+        # Discover default gateways and DNS resolvers safely
+        try:
+            gateways = RouteParser.get_default_gateways(use_mock=False)
+        except Exception:
+            gateways = []
+
+        try:
+            interface_dns = DNSDiagnostics.get_interface_dns_servers(use_mock=False)
+        except Exception:
+            interface_dns = {}
+
+        try:
+            system_dns = DNSDiagnostics.get_system_dns_servers(use_mock=False)
+        except Exception:
+            system_dns = []
+
+        return self.associate_gateways_and_dns(interfaces, gateways, interface_dns, system_dns)
 
     def _discover_from_proc_and_sys(self) -> List[NetworkInterface]:
         """Discover interfaces and addresses from /sys/class/net and /proc/net/if_inet6."""
@@ -469,8 +568,17 @@ class NetworkInspector:
     """High-level read-only interface query orchestrator."""
 
     def __init__(self, use_mock: bool = True) -> None:
+        self.use_mock = use_mock
         self.provider: NetworkProvider = MockNetworkProvider() if use_mock else HostNetworkProvider()
 
     def list_interfaces(self) -> List[NetworkInterface]:
         """Fetch list of network interfaces safely."""
         return self.provider.get_interfaces()
+
+    def get_system_dns(self) -> List[DNSServerInfo]:
+        """Fetch host system-wide DNS servers safely."""
+        return DNSDiagnostics.get_system_dns_servers(use_mock=self.use_mock)
+
+    def get_default_gateways(self) -> List[GatewayInfo]:
+        """Fetch default gateways safely."""
+        return RouteParser.get_default_gateways(use_mock=self.use_mock)

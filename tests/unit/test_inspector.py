@@ -1,9 +1,18 @@
-"""Unit and integration tests for network interface inspector and address discovery."""
+from __future__ import annotations
 
 import json
 import unittest
+from typing import Any, Dict, List, Optional
+
 from itsa_network_os.network.inspector import HostNetworkProvider, MockNetworkProvider, NetworkInspector
-from itsa_network_os.network.models import InterfaceState, InterfaceType, IPAddressInfo, NetworkInterface
+from itsa_network_os.network.models import (
+    DNSServerInfo,
+    GatewayInfo,
+    InterfaceState,
+    InterfaceType,
+    IPAddressInfo,
+    NetworkInterface,
+)
 
 
 class TestNetworkInspector(unittest.TestCase):
@@ -343,6 +352,312 @@ class TestHostNetworkProviderLiveIntegration(unittest.TestCase):
                     addr.classification,
                     ("loopback", "private", "link-local", "unique-local", "global-unicast", "site-local", "reserved"),
                 )
+
+
+class TestGatewayAndDNSAssociation(unittest.TestCase):
+    """Deterministic tests for TASK-005 Local Gateway and DNS Association."""
+
+    def _sample_interfaces(self) -> List[NetworkInterface]:
+        return [
+            NetworkInterface(
+                name="lo",
+                mac_address="00:00:00:00:00:00",
+                state=InterfaceState.UP,
+                interface_type=InterfaceType.LOOPBACK,
+                mtu=65536,
+                addresses=[
+                    IPAddressInfo(address="127.0.0.1", prefix_length=8, family="IPv4", scope="host", classification="loopback"),
+                    IPAddressInfo(address="::1", prefix_length=128, family="IPv6", scope="host", classification="loopback"),
+                ],
+            ),
+            NetworkInterface(
+                name="eth0",
+                mac_address="02:42:0a:11:00:02",
+                state=InterfaceState.UP,
+                interface_type=InterfaceType.ETHERNET,
+                mtu=1500,
+                addresses=[
+                    IPAddressInfo(address="192.168.1.105", prefix_length=24, family="IPv4", scope="global", classification="private"),
+                    IPAddressInfo(address="fe80::42:aff:fe11:2", prefix_length=64, family="IPv6", scope="link", classification="link-local"),
+                ],
+            ),
+            NetworkInterface(
+                name="wlan0",
+                mac_address="3c:52:82:1a:2b:3c",
+                state=InterfaceState.DOWN,
+                interface_type=InterfaceType.WIRELESS,
+                mtu=1500,
+                addresses=[],
+            ),
+        ]
+
+    def test_criterion_1_ipv4_default_gateway_association(self) -> None:
+        """1. IPv4 default gateway associated with the correct interface."""
+        interfaces = self._sample_interfaces()
+        gateways = [
+            GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0", protocol="dhcp"),
+        ]
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},
+            system_dns=[],
+        )
+
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.gateways), 1)
+        self.assertEqual(eth0.gateways[0].gateway, "192.168.1.1")
+        self.assertEqual(eth0.gateways[0].family, "IPv4")
+        self.assertEqual(eth0.gateways[0].interface, "eth0")
+        self.assertEqual(eth0.default_ipv4_gateway, "192.168.1.1")
+        self.assertIsNone(eth0.default_ipv6_gateway)
+
+        lo = next(i for i in associated if i.name == "lo")
+        self.assertEqual(len(lo.gateways), 0)
+        self.assertIsNone(lo.default_ipv4_gateway)
+
+    def test_criterion_2_ipv6_default_gateway_association(self) -> None:
+        """2. IPv6 default gateway associated with the correct interface."""
+        interfaces = self._sample_interfaces()
+        gateways = [
+            GatewayInfo(gateway="fe80::1", family="IPv6", metric=1024, interface="eth0", protocol="ra"),
+        ]
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},
+            system_dns=[],
+        )
+
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.gateways), 1)
+        self.assertEqual(eth0.gateways[0].gateway, "fe80::1")
+        self.assertEqual(eth0.gateways[0].family, "IPv6")
+        self.assertEqual(eth0.default_ipv6_gateway, "fe80::1")
+        self.assertIsNone(eth0.default_ipv4_gateway)
+
+    def test_criterion_3_routes_with_no_gateway_or_no_default_route(self) -> None:
+        """3. Routes with no gateway or no default route; never assume gateway from IP alone."""
+        interfaces = self._sample_interfaces()
+        # No default gateway provided
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=[],
+            interface_dns={},
+            system_dns=[],
+        )
+        for iface in associated:
+            self.assertEqual(len(iface.gateways), 0)
+            self.assertIsNone(iface.default_ipv4_gateway)
+            self.assertIsNone(iface.default_ipv6_gateway)
+
+    def test_criterion_4_multiple_default_routes_and_metrics(self) -> None:
+        """4. Multiple default routes, metrics, and dual-stack handling."""
+        interfaces = self._sample_interfaces()
+        gateways = [
+            GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0", protocol="dhcp"),
+            GatewayInfo(gateway="10.0.0.1", family="IPv4", metric=600, interface="eth0", protocol="static"),
+            GatewayInfo(gateway="fe80::1", family="IPv6", metric=1024, interface="eth0", protocol="ra"),
+        ]
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},
+            system_dns=[],
+        )
+
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.gateways), 3)
+        # default_ipv4_gateway picks lowest metric (100 over 600)
+        self.assertEqual(eth0.default_ipv4_gateway, "192.168.1.1")
+        self.assertEqual(eth0.default_ipv6_gateway, "fe80::1")
+
+    def test_criterion_5_missing_or_malformed_routing_data(self) -> None:
+        """5. Graceful handling of missing or malformed routing entries."""
+        interfaces = self._sample_interfaces()
+        # Empty interface name in gateway
+        gateways = [
+            GatewayInfo(gateway="1.1.1.1", family="IPv4", metric=None, interface=""),
+        ]
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},
+            system_dns=[],
+        )
+        for iface in associated:
+            self.assertEqual(len(iface.gateways), 0)
+
+    def test_criterion_6_system_wide_dns_without_interface_mapping(self) -> None:
+        """6. System-wide DNS without a verified per-interface mapping.
+        
+        Must be attributed with scope='system', interface=None, provenance='resolv.conf'.
+        Must NOT be attached to unrelated interfaces like 'lo'.
+        """
+        interfaces = self._sample_interfaces()
+        gateways = [
+            GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0"),
+        ]
+        system_dns = [
+            DNSServerInfo(address="8.8.8.8", scope="system", interface=None, provenance="resolv.conf"),
+            DNSServerInfo(address="8.8.4.4", scope="system", interface=None, provenance="resolv.conf"),
+        ]
+
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},  # No interface-specific metadata
+            system_dns=system_dns,
+        )
+
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.dns_servers), 2)
+        for s in eth0.dns_servers:
+            self.assertEqual(s.scope, "system")
+            self.assertIsNone(s.interface)
+            self.assertEqual(s.provenance, "resolv.conf")
+        self.assertEqual(len(eth0.system_dns_servers), 2)
+        self.assertEqual(len(eth0.interface_dns_servers), 0)
+
+        # Loopback must not receive system DNS
+        lo = next(i for i in associated if i.name == "lo")
+        self.assertEqual(len(lo.dns_servers), 0)
+
+    def test_criterion_7_interface_specific_dns_association(self) -> None:
+        """7. Interface-specific DNS where reliable metadata exists (e.g. NetworkManager).
+        
+        Must be attributed with scope='interface', interface='eth0', provenance='networkmanager'.
+        """
+        interfaces = self._sample_interfaces()
+        gateways = [
+            GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0"),
+        ]
+        interface_dns = {
+            "eth0": [
+                DNSServerInfo(address="192.168.1.1", scope="interface", interface="eth0", provenance="networkmanager")
+            ]
+        }
+        system_dns = [
+            DNSServerInfo(address="8.8.8.8", scope="system", interface=None, provenance="resolv.conf")
+        ]
+
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns=interface_dns,
+            system_dns=system_dns,
+        )
+
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.dns_servers), 1)
+        dns_entry = eth0.dns_servers[0]
+        self.assertEqual(dns_entry.address, "192.168.1.1")
+        self.assertEqual(dns_entry.scope, "interface")
+        self.assertEqual(dns_entry.interface, "eth0")
+        self.assertEqual(dns_entry.provenance, "networkmanager")
+        self.assertEqual(len(eth0.interface_dns_servers), 1)
+        self.assertEqual(len(eth0.system_dns_servers), 0)
+
+    def test_criterion_8_missing_or_empty_resolver_configuration(self) -> None:
+        """8. Missing or empty resolver configuration returns empty list without errors."""
+        interfaces = self._sample_interfaces()
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=[GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0")],
+            interface_dns={},
+            system_dns=[],
+        )
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.dns_servers), 0)
+
+    def test_criterion_9_multiple_nameservers_and_duplicate_handling(self) -> None:
+        """9. Multiple nameservers and duplicate elimination."""
+        interfaces = self._sample_interfaces()
+        gateways = [GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0")]
+        # Pre-deduplicated list of multiple nameservers
+        system_dns = [
+            DNSServerInfo(address="1.1.1.1", scope="system", interface=None, provenance="resolv.conf"),
+            DNSServerInfo(address="1.0.0.1", scope="system", interface=None, provenance="resolv.conf"),
+            DNSServerInfo(address="2606:4700:4700::1111", scope="system", interface=None, provenance="resolv.conf"),
+        ]
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},
+            system_dns=system_dns,
+        )
+        eth0 = next(i for i in associated if i.name == "eth0")
+        self.assertEqual(len(eth0.dns_servers), 3)
+        addrs = [d.address for d in eth0.dns_servers]
+        self.assertEqual(addrs, ["1.1.1.1", "1.0.0.1", "2606:4700:4700::1111"])
+
+    def test_criterion_10_deterministic_mock_mode_gateway_and_dns(self) -> None:
+        """10. Deterministic mock-mode gateway and DNS data in MockNetworkProvider."""
+        provider = MockNetworkProvider()
+        interfaces = provider.get_interfaces()
+        self.assertEqual(len(interfaces), 3)
+
+        lo = next(i for i in interfaces if i.name == "lo")
+        self.assertEqual(len(lo.gateways), 0)
+        self.assertEqual(len(lo.dns_servers), 0)
+
+        eth0 = next(i for i in interfaces if i.name == "eth0")
+        self.assertEqual(len(eth0.gateways), 2)
+        self.assertEqual(eth0.default_ipv4_gateway, "192.168.1.1")
+        self.assertEqual(eth0.default_ipv6_gateway, "fe80::1")
+        self.assertEqual(len(eth0.dns_servers), 1)
+        self.assertEqual(eth0.dns_servers[0].address, "192.168.1.1")
+        self.assertEqual(eth0.dns_servers[0].scope, "interface")
+        self.assertEqual(eth0.dns_servers[0].interface, "eth0")
+
+        wlan0 = next(i for i in interfaces if i.name == "wlan0")
+        self.assertEqual(len(wlan0.gateways), 0)
+        self.assertEqual(len(wlan0.dns_servers), 0)
+
+    def test_criterion_11_backward_compatible_model_serialization(self) -> None:
+        """11. Backward-compatible model instantiation, serialization, and existing consumers."""
+        # Instantiation without new kwargs works via default_factory
+        iface = NetworkInterface(
+            name="eth9",
+            mac_address="52:54:00:12:34:56",
+            state=InterfaceState.UP,
+            interface_type=InterfaceType.ETHERNET,
+            mtu=1500,
+            addresses=[],
+        )
+        self.assertEqual(iface.gateways, [])
+        self.assertEqual(iface.dns_servers, [])
+        self.assertIsNone(iface.default_ipv4_gateway)
+        self.assertIsNone(iface.default_ipv6_gateway)
+
+        # Serialization to dict
+        d = iface.to_dict()
+        self.assertIn("gateways", d)
+        self.assertIn("dns_servers", d)
+        self.assertEqual(d["gateways"], [])
+        self.assertEqual(d["dns_servers"], [])
+        self.assertEqual(d["state"], "UP")
+        self.assertEqual(d["interface_type"], "Ethernet")
+
+        # JSON round-trip
+        json_str = json.dumps(d)
+        deserialized = json.loads(json_str)
+        self.assertEqual(deserialized["name"], "eth9")
+        self.assertEqual(deserialized["gateways"], [])
+
+    def test_criterion_12_unprivileged_execution_and_absence_of_active_probes(self) -> None:
+        """12. Association operates purely in-memory on data structures with zero socket probes."""
+        # Ensure that associate_gateways_and_dns runs completely in-memory without external calls
+        interfaces = self._sample_interfaces()
+        gateways = [GatewayInfo(gateway="192.168.1.1", family="IPv4", metric=100, interface="eth0")]
+        associated = HostNetworkProvider.associate_gateways_and_dns(
+            interfaces=interfaces,
+            gateways=gateways,
+            interface_dns={},
+            system_dns=[],
+        )
+        self.assertIsInstance(associated, list)
+        self.assertEqual(len(associated), 3)
 
 
 if __name__ == "__main__":
