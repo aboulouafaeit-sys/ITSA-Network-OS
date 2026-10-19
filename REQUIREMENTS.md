@@ -51,10 +51,10 @@ Requirements in ITSA Network OS are assigned stable alphanumeric identifiers. Ev
 
 | ID | Title | Level | Status | Specification |
 |---|---|---|---|---|
-| **REQ-DISC-001** | Evidence Attribution & Confidence | Level 1 | `PLANNED` | Every discovered device record must attach timestamp, source protocol (MNDP, ONVIF, ARP, mDNS), and explicit distinction between confirmed facts and inferences. |
-| **REQ-DISC-002** | Authorized Scope Enclosure | Level 1 | `PLANNED` | Active scanning or packet transmission must only occur within explicitly user-authorized CIDR network blocks or interfaces. |
+| **REQ-DISC-001** | Evidence Attribution & Confidence | Level 1 | `VERIFIED` | Every discovered device record must attach timestamp, source protocol (MNDP, ONVIF, ARP, mDNS), and explicit distinction between confirmed facts and inferences. |
+| **REQ-DISC-002** | Authorized Scope Enclosure | Level 1 | `VERIFIED` | Active scanning or packet transmission must only occur within explicitly user-authorized CIDR network blocks or interfaces. |
 | **REQ-DISC-003** | Multi-Vendor Hardware Profiling | Level 1 | `VERIFIED` | System must categorize and display device profiles for MikroTik RouterOS, Ubiquiti airMAX, TP-Link Pharos CPE, Linux servers, and ONVIF cameras. |
-| **REQ-DISC-004** | Live Passive Discovery Listeners | Level 1 | `PLANNED` | Must provide non-intrusive broadcast UDP listeners for MikroTik MNDP (UDP 5678) and ONVIF WS-Discovery (UDP 3702) without faking live results. |
+| **REQ-DISC-004** | Live Passive Discovery Listeners | Level 1 | `VERIFIED` | Must provide non-intrusive broadcast UDP listeners for MikroTik MNDP (UDP 5678) and ONVIF WS-Discovery (UDP 3702) without faking live results. |
 | **REQ-DISC-005** | Wi-Fi Access Point Telemetry | Level 1 | `VERIFIED` | Must analyze 802.11 access points, standard generation (Wi-Fi 4/5/6/7), encryption protocol (WPA2/WPA3, WEP, Open), and co-channel interference. |
 | **REQ-DISC-006** | RF Spectrum Congestion Scoring | Level 1 | `VERIFIED` | Must calculate RF spectrum utilization for 2.4 GHz and 5 GHz bands and recommend cleanest non-overlapping channels (1, 6, 11). |
 

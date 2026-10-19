@@ -277,7 +277,13 @@ class Application:
         return SPFSimulatorEngine.calculate_spf(source_id=sanitized_source, failed_link_id=failed_link)
 
     def discover_vendor_devices(
-        self, category: Optional[str] = None, force_live: bool = False
+        self,
+        category: Optional[str] = None,
+        force_live: bool = False,
+        timeout: float = 5.0,
+        interface: Optional[str] = None,
+        mndp_socket_factory: Optional[Any] = None,
+        onvif_socket_factory: Optional[Any] = None,
     ) -> VendorDiscoveryReport:
         """Discover and inspect multi-vendor hardware (MikroTik, Ubiquiti, TP-Link CPE, ONVIF Cameras)."""
         cat_enum: Optional[DeviceCategory] = None
@@ -295,5 +301,23 @@ class Application:
                 cat_enum = DeviceCategory.LINUX_SERVER
 
         use_mock = self.config.use_mock_network and not force_live
-        self.logger.info("Executing multi-vendor device discovery (filter=%s, mock=%s)", cat_enum, use_mock)
-        return VendorManagerEngine.discover_devices(category_filter=cat_enum, use_mock=use_mock)
+        if interface is None and self.scope_guard.enclosure and len(self.scope_guard.enclosure.interfaces) == 1:
+            interface = self.scope_guard.enclosure.interfaces[0]
+
+        self.logger.info(
+            "Executing multi-vendor device discovery (filter=%s, mock=%s, timeout=%.1fs, iface=%s)",
+            cat_enum,
+            use_mock,
+            timeout,
+            interface,
+        )
+        return VendorManagerEngine.discover_devices(
+            category_filter=cat_enum,
+            use_mock=use_mock,
+            timeout=timeout,
+            interface=interface,
+            scope_guard=self.scope_guard if not use_mock else None,
+            mndp_socket_factory=mndp_socket_factory,
+            onvif_socket_factory=onvif_socket_factory,
+        )
+

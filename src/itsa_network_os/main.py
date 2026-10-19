@@ -167,6 +167,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional interface constraint for authorized network scope",
     )
     parser.add_argument(
+        "--timeout",
+        type=float,
+        default=5.0,
+        help="Listening timeout in seconds for passive broadcast discovery (default: 5.0, range: 0.1-60.0)",
+    )
+    parser.add_argument(
         "--live",
         action="store_true",
         help="Execute live queries instead of using safe mock provider",
@@ -383,12 +389,23 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         if args.vendor_scan or args.cams:
             filter_cat = "camera" if args.cams else args.vendor
-            vendor_report = app.discover_vendor_devices(category=filter_cat, force_live=args.live)
+            scan_timeout = getattr(args, "timeout", 5.0) or 5.0
+            scan_iface = getattr(args, "scope_interface", None)
+            vendor_report = app.discover_vendor_devices(
+                category=filter_cat,
+                force_live=args.live,
+                timeout=scan_timeout,
+                interface=scan_iface,
+            )
             if args.json:
                 print(ReportExporter.to_json(vendor_report.to_dict()))
             else:
                 TerminalFormatter.print_banner()
-                TerminalFormatter.print_vendor_discovery(vendor_report)
+                TerminalFormatter.print_vendor_discovery(
+                    vendor_report,
+                    is_live=args.live,
+                    timeout=scan_timeout,
+                )
             return 0
 
     except (SecurityValidationError, SubnetCalculationError, ScopeViolationError, ValueError) as exc:

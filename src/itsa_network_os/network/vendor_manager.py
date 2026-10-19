@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import socket
+import threading
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
+from itsa_network_os.network.mndp import MNDPObservation, MNDPPassiveListener
 from itsa_network_os.network.models import EvidenceProtocol, EvidenceRecord
+from itsa_network_os.network.onvif import ONVIFObservation, ONVIFPassiveListener
+
+if TYPE_CHECKING:
+    from itsa_network_os.network.scope import ScopeGuard
 
 
 class DeviceCategory(str, Enum):
@@ -460,15 +467,28 @@ class VendorManagerEngine:
         cls,
         category_filter: Optional[DeviceCategory] = None,
         use_mock: bool = True,
+        timeout: float = 5.0,
+        interface: Optional[str] = None,
+        scope_guard: Optional[Any] = None,
+        mndp_socket_factory: Optional[Any] = None,
+        onvif_socket_factory: Optional[Any] = None,
     ) -> VendorDiscoveryReport:
-        """Discover and query multi-vendor network hardware and IP surveillance devices."""
+        """Discover and query multi-vendor network hardware and IP surveillance devices.
+
+        When use_mock=True, returns deterministic simulated hardware profiles.
+        When use_mock=False, listens passively for broadcast/multicast announcements
+        via MNDP and ONVIF WS-Discovery. Never returns simulated devices in live mode.
+        """
         if use_mock:
             devices = cls.get_mock_devices()
         else:
-            try:
-                devices = cls._discover_live()
-            except Exception:
-                devices = cls.get_mock_devices()
+            devices = cls._discover_live(
+                timeout=timeout,
+                interface=interface,
+                scope_guard=scope_guard,
+                mndp_socket_factory=mndp_socket_factory,
+                onvif_socket_factory=onvif_socket_factory,
+            )
 
         if category_filter:
             devices = [d for d in devices if d.category == category_filter]
@@ -479,7 +499,10 @@ class VendorManagerEngine:
             category_counts[cat_name] = category_counts.get(cat_name, 0) + 1
 
         vulnerable_count = sum(
-            1 for d in devices if d.security_status in (DeviceSecurityStatus.WARNING, DeviceSecurityStatus.CRITICAL)
+            1
+            for d in devices
+            if d.security_status
+            in (DeviceSecurityStatus.WARNING, DeviceSecurityStatus.CRITICAL)
         )
 
         return VendorDiscoveryReport(
@@ -490,7 +513,368 @@ class VendorManagerEngine:
         )
 
     @classmethod
-    def _discover_live(cls) -> List[ManagedDevice]:
-        """Perform passive and broadcast listening for MNDP, UBNT, and ONVIF packets."""
-        # Non-destructive fallback listener
-        return cls.get_mock_devices()
+    def _discover_live(
+        cls,
+        timeout: float = 5.0,
+        interface: Optional[str] = None,
+        scope_guard: Optional[Any] = None,
+        mndp_socket_factory: Optional[Any] = None,
+        onvif_socket_factory: Optional[Any] = None,
+    ) -> List[ManagedDevice]:
+        """Perform passive, read-only listening for MNDP and ONVIF broadcast announcements.
+
+        Strict security invariants:
+        - NEVER transmits application packets (no ONVIF Probes, no MNDP queries).
+        - Strictly unprivileged execution.
+        - Silent network produces an empty result collection (total_devices=0), NEVER fake devices.
+        - Applies ScopeGuard authorization policy to sender addresses when configured.
+        - Deduplicates MNDP by verified MAC and ONVIF by verified endpoint UUID.
+        - Bounded inventory (max 256 devices).
+        """
+        logger = logging.getLogger("itsa_network_os.vendor_manager")
+
+        # Check interface with scope_guard if configured
+        if (
+            scope_guard is not None
+            and scope_guard.is_configured
+            and scope_guard.enclosure
+            and scope_guard.enclosure.interfaces
+        ):
+            if interface is not None and interface not in scope_guard.enclosure.interfaces:
+                from itsa_network_os.network.scope import ScopeViolationError
+
+                raise ScopeViolationError(
+                    f"Requested interface '{interface}' is not in authorized interfaces: {list(scope_guard.enclosure.interfaces)}"
+                )
+
+        mndp_listener = MNDPPassiveListener()
+        onvif_listener = ONVIFPassiveListener()
+
+        mndp_observations: List[MNDPObservation] = []
+        onvif_observations: List[ONVIFObservation] = []
+        listener_errors: List[Exception] = []
+        stop_event = threading.Event()
+
+        def listen_mndp() -> None:
+            try:
+                obs = mndp_listener.listen(
+                    timeout=timeout,
+                    interface=interface,
+                    stop_event=stop_event,
+                    socket_factory=mndp_socket_factory,
+                )
+                mndp_observations.extend(obs)
+            except Exception as exc:
+                listener_errors.append(exc)
+
+        def listen_onvif() -> None:
+            try:
+                obs = onvif_listener.listen(
+                    timeout=timeout,
+                    interface=interface,
+                    stop_event=stop_event,
+                    socket_factory=onvif_socket_factory,
+                )
+                onvif_observations.extend(obs)
+            except Exception as exc:
+                listener_errors.append(exc)
+
+        t_mndp = threading.Thread(
+            target=listen_mndp, name="MNDP-Passive-Worker", daemon=True
+        )
+        t_onvif = threading.Thread(
+            target=listen_onvif, name="ONVIF-Passive-Worker", daemon=True
+        )
+
+        t_mndp.start()
+        t_onvif.start()
+
+        join_timeout = max(0.2, min(float(timeout) + 2.0, 65.0))
+        t_mndp.join(timeout=join_timeout)
+        t_onvif.join(timeout=join_timeout)
+
+        # Check if mandatory interface filtering error occurred
+        for err in listener_errors:
+            if isinstance(err, RuntimeError) and "cannot be enforced" in str(err).lower():
+                raise err
+
+        discovered_devices: Dict[str, ManagedDevice] = {}
+        max_inventory_size = 256
+
+        # Process MNDP observations
+        for m_obs in mndp_observations:
+            if len(discovered_devices) >= max_inventory_size:
+                break
+
+            # Filter sender against authorized ScopeEnclosure if configured
+            if scope_guard is not None and scope_guard.is_configured:
+                if not scope_guard.is_authorized(
+                    m_obs.sender_ip, interface=m_obs.interface
+                ):
+                    logger.info(
+                        "Dropping MNDP observation from unauthorized sender %s",
+                        m_obs.sender_ip,
+                    )
+                    continue
+
+            pkt = m_obs.packet
+            mac_clean = (
+                (pkt.mac_address or "").replace(":", "").replace("-", "").upper()
+            )
+            dev_key = (
+                f"MNDP:{mac_clean}" if mac_clean else f"MNDP:IP:{m_obs.sender_ip}"
+            )
+
+            now_iso = m_obs.timestamp
+            rec_fact = EvidenceRecord(
+                source_protocol=EvidenceProtocol.MNDP,
+                timestamp=now_iso,
+                confidence=1.0,
+                is_verified_fact=True,
+                attribute="packet_reception",
+                details=f"Received passive MNDP broadcast on {m_obs.interface or 'default'} from {m_obs.sender_ip}:{m_obs.sender_port}",
+            )
+
+            claims: List[EvidenceRecord] = [rec_fact]
+            if pkt.board_name:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="model",
+                        details=f"Claimed RouterBOARD model: {pkt.board_name}",
+                    )
+                )
+            if pkt.version:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="firmware_version",
+                        details=f"Claimed RouterOS version: {pkt.version}",
+                    )
+                )
+            if pkt.identity:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="name",
+                        details=f"Claimed router identity: {pkt.identity}",
+                    )
+                )
+            if pkt.mac_address:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="mac_address",
+                        details=f"Claimed hardware MAC: {pkt.mac_address}",
+                    )
+                )
+
+            if dev_key in discovered_devices:
+                existing = discovered_devices[dev_key]
+                merged_ev = list(existing.evidence)
+                if len(merged_ev) < 20:
+                    merged_ev.extend(claims)
+                notes = list(existing.security_notes)
+                if pkt.identity and pkt.identity != existing.name:
+                    notes.append(
+                        f"Conflicting identity claim observed: '{pkt.identity}' vs '{existing.name}'"
+                    )
+                discovered_devices[dev_key] = ManagedDevice(
+                    device_id=existing.device_id,
+                    name=existing.name,
+                    category=existing.category,
+                    vendor=existing.vendor,
+                    model=existing.model,
+                    ip_address=existing.ip_address,
+                    mac_address=existing.mac_address,
+                    firmware_version=existing.firmware_version,
+                    discovery_protocol=existing.discovery_protocol,
+                    security_status=existing.security_status,
+                    security_notes=notes,
+                    router_info=existing.router_info,
+                    evidence=merged_ev,
+                )
+            else:
+                dev_id = (
+                    f"MIK-{mac_clean[-6:]}"
+                    if len(mac_clean) >= 6
+                    else f"MIK-{m_obs.sender_ip.replace('.', '_')}"
+                )
+                dev_name = pkt.identity or f"MikroTik-{pkt.board_name or 'Router'}"
+                r_info = RouterOSTelemetry(
+                    board_name=pkt.board_name or "RouterBOARD",
+                    architecture="Unknown",
+                    cpu_load_percent=0,
+                    free_memory_mb=0.0,
+                    uptime_str=pkt.uptime_formatted,
+                    active_interfaces=1,
+                    active_leases=0,
+                )
+                discovered_devices[dev_key] = ManagedDevice(
+                    device_id=dev_id,
+                    name=dev_name,
+                    category=DeviceCategory.MIKROTIK,
+                    vendor=pkt.platform or "MikroTik",
+                    model=pkt.board_name or "RouterBOARD",
+                    ip_address=pkt.ipv4_address or m_obs.sender_ip,
+                    mac_address=pkt.mac_address or "",
+                    firmware_version=pkt.version or "RouterOS",
+                    discovery_protocol="MNDP (MikroTik Discovery UDP 5678)",
+                    security_status=DeviceSecurityStatus.SECURE,
+                    security_notes=[
+                        f"Observed on interface {m_obs.interface or 'default'} via passive MNDP broadcast"
+                    ],
+                    router_info=r_info,
+                    evidence=claims,
+                )
+
+        # Process ONVIF observations
+        for o_obs in onvif_observations:
+            if len(discovered_devices) >= max_inventory_size:
+                break
+
+            if scope_guard is not None and scope_guard.is_configured:
+                if not scope_guard.is_authorized(
+                    o_obs.sender_ip, interface=o_obs.interface
+                ):
+                    logger.info(
+                        "Dropping ONVIF observation from unauthorized sender %s",
+                        o_obs.sender_ip,
+                    )
+                    continue
+
+            msg = o_obs.message
+            clean_uuid = (msg.endpoint_uuid or "").replace("urn:uuid:", "").strip()
+            dev_key = (
+                f"ONVIF:{clean_uuid}"
+                if clean_uuid
+                else f"ONVIF:IP:{msg.ip_address or o_obs.sender_ip}"
+            )
+
+            now_iso = o_obs.timestamp
+            rec_fact = EvidenceRecord(
+                source_protocol=EvidenceProtocol.ONVIF,
+                timestamp=now_iso,
+                confidence=1.0,
+                is_verified_fact=True,
+                attribute="packet_reception",
+                details=f"Received passive ONVIF {msg.message_type} on {o_obs.interface or 'default'} from {o_obs.sender_ip}:{o_obs.sender_port}",
+            )
+
+            claims = [rec_fact]
+            if msg.hardware_model:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.ONVIF,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="model",
+                        details=f"Claimed camera hardware model: {msg.hardware_model}",
+                    )
+                )
+            if msg.device_name:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.ONVIF,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="name",
+                        details=f"Claimed camera name: {msg.device_name}",
+                    )
+                )
+            if msg.xaddrs:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.ONVIF,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="xaddrs",
+                        details=f"Claimed service endpoints: {', '.join(msg.xaddrs[:3])}",
+                    )
+                )
+
+            if dev_key in discovered_devices:
+                existing = discovered_devices[dev_key]
+                merged_ev = list(existing.evidence)
+                if len(merged_ev) < 20:
+                    merged_ev.extend(claims)
+                notes = list(existing.security_notes)
+                if msg.message_type == "Bye":
+                    notes.append("Device announced departure via WS-Discovery Bye")
+                discovered_devices[dev_key] = ManagedDevice(
+                    device_id=existing.device_id,
+                    name=existing.name,
+                    category=existing.category,
+                    vendor=existing.vendor,
+                    model=existing.model,
+                    ip_address=existing.ip_address,
+                    mac_address=existing.mac_address,
+                    firmware_version=existing.firmware_version,
+                    discovery_protocol=existing.discovery_protocol,
+                    security_status=existing.security_status,
+                    security_notes=notes,
+                    camera_info=existing.camera_info,
+                    evidence=merged_ev,
+                )
+            else:
+                dev_id = (
+                    f"CAM-{clean_uuid[-6:]}"
+                    if len(clean_uuid) >= 6
+                    else f"CAM-{o_obs.sender_ip.replace('.', '_')}"
+                )
+                dev_name = (
+                    msg.device_name
+                    or f"ONVIF Camera ({msg.hardware_model or 'Unknown'})"
+                )
+                vendor_name = "ONVIF"
+                if msg.hardware_model:
+                    parts = msg.hardware_model.split()
+                    if parts:
+                        vendor_name = parts[0]
+                cam_info = CameraTelemetry(
+                    rtsp_uri=f"rtsp://{msg.ip_address or o_obs.sender_ip}:554/live",
+                    onvif_port=msg.port or 80,
+                    resolution="1920x1080",
+                    codec="H.264/H.265",
+                    fps=30,
+                    has_default_credentials=False,
+                    ptz_supported=any("ptz" in s.lower() for s in msg.scopes),
+                )
+                notes = [
+                    f"Observed on interface {o_obs.interface or 'default'} via passive ONVIF {msg.message_type}"
+                ]
+                if msg.message_type == "Bye":
+                    notes.append("Device announced departure via WS-Discovery Bye")
+                discovered_devices[dev_key] = ManagedDevice(
+                    device_id=dev_id,
+                    name=dev_name,
+                    category=DeviceCategory.IP_CAMERA,
+                    vendor=vendor_name,
+                    model=msg.hardware_model or "Network Video Transmitter",
+                    ip_address=msg.ip_address or o_obs.sender_ip,
+                    mac_address="",
+                    firmware_version=f"WS-Discovery (Metadata v{msg.metadata_version or 1})",
+                    discovery_protocol="ONVIF WS-Discovery (UDP 3702)",
+                    security_status=DeviceSecurityStatus.SECURE,
+                    security_notes=notes,
+                    camera_info=cam_info,
+                    evidence=claims,
+                )
+
+        return list(discovered_devices.values())
+

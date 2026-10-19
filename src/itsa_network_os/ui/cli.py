@@ -319,16 +319,37 @@ class TerminalFormatter:
         print("=====================================================================================================\n")
 
     @staticmethod
-    def print_vendor_discovery(report: VendorDiscoveryReport) -> None:
+    def print_vendor_discovery(
+        report: VendorDiscoveryReport,
+        is_live: bool = False,
+        timeout: float = 5.0,
+    ) -> None:
         """Render multi-vendor hardware inventory and IP surveillance camera diagnostics."""
+        mode_str = (
+            "LIVE PASSIVE BROADCAST / MULTICAST"
+            if is_live
+            else "OFFLINE MOCK / SIMULATED FIXTURES"
+        )
         print("\n=====================================================================================================")
-        print("          Multi-Vendor Network Hardware & IP Surveillance Device Inventory (Read-Only)               ")
+        print(f"          Multi-Vendor Network Hardware & IP Surveillance Device Inventory ({mode_str})               ")
         print("=====================================================================================================")
         print(f" Total Discovered Devices: {report.total_devices}")
-        counts_str = " | ".join(f"{k}: {v}" for k, v in report.category_counts.items())
+        counts_str = (
+            " | ".join(f"{k}: {v}" for k, v in report.category_counts.items())
+            if report.category_counts
+            else "None"
+        )
         print(f" Category Breakdown      : {counts_str}")
         if report.vulnerable_device_count > 0:
             print(f" Security Advisories     : [!] {report.vulnerable_device_count} device(s) have warnings or default credentials!")
+
+        if is_live and report.total_devices == 0:
+            print(f"\n [*] Zero devices observed during passive listening interval ({timeout:.1f}s).")
+            print("     Note: Passive listeners (MNDP UDP 5678, ONVIF UDP 3702) never transmit discovery queries.")
+            print("     Quiet networks or devices that announce periodically may not emit packets during this window.")
+            print("     This scan is non-exhaustive; silent network operation is expected and normal.")
+            print("=====================================================================================================\n")
+            return
 
         print("\n-----------------------------------------------------------------------------------------------------")
         print(f" {'ID':<7} | {'Device Name':<26} | {'Vendor':<12} | {'Category':<22} | {'IP Address':<15} | {'Status'}")
@@ -345,6 +366,12 @@ class TerminalFormatter:
         for d in report.devices:
             print(f"\n • [{d.device_id}] {d.name} ({d.vendor} {d.model}) - IP: {d.ip_address} | MAC: {d.mac_address}")
             print(f"   Firmware / OS: {d.firmware_version} (via {d.discovery_protocol})")
+
+            if d.evidence:
+                print(f"   Evidence Provenance   : {len(d.evidence)} record(s) attached")
+                for ev in d.evidence[:3]:
+                    fact_label = "[Fact]" if ev.is_verified_fact else "[Claim]"
+                    print(f"     • {fact_label} ({ev.source_protocol}, conf={ev.confidence:.2f}): {ev.details or ev.attribute or ''}")
 
             if d.camera_info:
                 cam = d.camera_info
@@ -369,4 +396,5 @@ class TerminalFormatter:
                     print(f"   [*] Advisory      : {note}")
 
         print("=====================================================================================================\n")
+
 

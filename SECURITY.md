@@ -81,6 +81,28 @@ All Level 2 active network operations (TCP latency benchmarks, TLS handshakes, l
    - Broad prefix restrictions (IPv4 `< 8`, IPv6 `< 7`, and `== 0`) are scope-size rules prohibiting massive supernets that risk internet-wide scanning; they are not RFC 1918 or ULA classifications. Public subnets within allowed prefix bounds (e.g. `8.8.8.0/24`) are permitted.
    - Subnet network (.0) and broadcast (.255) addresses for prefixes $\le 30$ are ineligible for active unicast connections, while RFC 3021 `/31` and `/32` remain permitted.
 
+### 2.2 Passive Broadcast & Multicast Discovery Listeners (REQ-DISC-004 / TASK-009)
+
+Passive network discovery operations (MikroTik MNDP on UDP 5678 and ONVIF WS-Discovery on UDP 3702) are Level 1 (Read-Only) operations governed by strict security invariants:
+
+1. **Zero Packet Transmission:**
+   - Listeners are strictly receive-only. Sockets never invoke `send()`, `sendto()`, or `sendmsg()`.
+   - The engine never transmits ONVIF `wsdd:Probe` requests, MNDP queries, ARP requests, ICMP probes, or TCP scans.
+2. **Unprivileged Execution:**
+   - High UDP ports (5678 and 3702) bind without `root`, `sudo`, `CAP_NET_RAW`, or `CAP_NET_ADMIN` capabilities.
+3. **Userspace Interface Filtering vs Physical Firewall Limitations:**
+   - Datagrams are attributed and filtered using `IP_PKTINFO` (`ipi_ifindex`) via `recvmsg()`.
+   - *Limitation:* Userspace filtering restricts which packets the application ingests into inventory, but does NOT act as a physical kernel firewall or packet filter. Inbound UDP packets on listening ports may still reach the host network stack.
+   - If an interface filter is requested on a platform or socket where `IP_PKTINFO` / `recvmsg` is unsupported, the listener fails closed with an explicit error rather than silently broadening to unrestricted listening.
+4. **Scope Authorization on Inbound Observations:**
+   - Inbound packet reception does not prove sender authenticity. Sender IP addresses are verified against configured `ScopeGuard` authorization boundaries before ingesting records.
+   - Discovered device claims (e.g. claimed RouterOS version, camera model, hardware identity) are classified as unverified claims (`is_verified_fact=False`, confidence=0.85); only direct datagram reception metadata is recorded as a verified fact (`is_verified_fact=True`, confidence=1.0).
+5. **XML & Binary Parsing Defense:**
+   - ONVIF XML payloads are capped at 64 KB, with strict pre-parsing regex rejection of `<!DOCTYPE` and `<!ENTITY` (preventing XXE and Billion Laughs). Extracted URLs are validated for scheme (`http`/`https`) and never fetched.
+   - MNDP binary TLVs enforce strict boundary checking, max 1024 bytes per TLV, 6-byte MAC validation, 4-byte little-endian uptime validation, and defensive string sanitization against control characters and heap exhaustion.
+6. **Zero Silent Mock Fallback:**
+   - Live discovery on a silent network returns an empty device list (`total_devices=0`). Simulated mock fixtures are never silently substituted into live discovery results.
+
 ---
 
 ## 3. Threat Model & Mitigations

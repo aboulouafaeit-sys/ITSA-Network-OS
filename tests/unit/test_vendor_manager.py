@@ -129,5 +129,249 @@ class TestVendorManager(unittest.TestCase):
         self.assertIn("camera_info", data["devices"][0])
 
 
+class MockDatagramSocket:
+    """Mock socket implementing recvmsg and setsockopt for deterministic testing."""
+
+    def __init__(self, *args, **kwargs):
+        self.closed = False
+        self.bound_addr = None
+        self.sockopts = {}
+        self.packets_queue = []
+        self.fail_pktinfo = False
+
+    def fileno(self):
+        return 42
+
+    def setblocking(self, flag):
+        pass
+
+    def settimeout(self, timeout):
+        pass
+
+    def close(self):
+        self.closed = True
+
+    def bind(self, addr):
+        self.bound_addr = addr
+
+    def setsockopt(self, level, optname, val):
+        import socket
+        if self.fail_pktinfo and level == socket.IPPROTO_IP and optname == getattr(socket, "IP_PKTINFO", 8):
+            raise OSError("IP_PKTINFO not supported on this platform")
+        self.sockopts[(level, optname)] = val
+
+    def queue_packet(self, data: bytes, sender_ip: str, sender_port: int, ifindex: int = 1):
+        """Queue a datagram to be returned by recvmsg."""
+        import socket
+        import struct
+        cmsg = [(socket.IPPROTO_IP, getattr(socket, "IP_PKTINFO", 8), struct.pack("iii", ifindex, 0, 0))]
+        self.packets_queue.append((data, cmsg, 0, (sender_ip, sender_port)))
+
+    def recvmsg(self, bufsize, ancbufsize=1024):
+        if self.packets_queue:
+            return self.packets_queue.pop(0)
+        raise BlockingIOError("No packets available")
+
+
+class TestLiveVendorDiscovery(unittest.TestCase):
+    """Integration test suite for live passive broadcast discovery (TASK-009)."""
+
+    def setUp(self) -> None:
+        from itsa_network_os.network.mndp import build_mndp_test_packet
+        from itsa_network_os.network.onvif import build_ws_discovery_test_xml
+
+        self.MockDatagramSocket = MockDatagramSocket
+        self.mndp_pkt = build_mndp_test_packet(
+            mac="48:8F:5A:11:22:33",
+            board_name="RB760iGS",
+            version="7.14.3",
+            identity="CoreRouter",
+            ipv4="192.168.88.1",
+        )
+        self.onvif_xml_hello = build_ws_discovery_test_xml(
+            message_type="Hello",
+            endpoint_uuid="urn:uuid:fa3b2469-656c-4866-b258-406a4632b6ad",
+            hardware_model="DS-2CD2042WD-I",
+            xaddr="http://192.168.1.108:80/onvif/device_service",
+        )
+        self.onvif_xml_bye = build_ws_discovery_test_xml(
+            message_type="Bye",
+            endpoint_uuid="urn:uuid:fa3b2469-656c-4866-b258-406a4632b6ad",
+            hardware_model="DS-2CD2042WD-I",
+        )
+
+    @staticmethod
+    def _mock_select(rlist, wlist, xlist, timeout):
+        readable = [s for s in rlist if getattr(s, "packets_queue", None)]
+        return (readable, [], [])
+
+    def test_live_discovery_silent_network_returns_zero_devices(self) -> None:
+        """Requirement: live scan on silent network returns total_devices == 0, never mock fallback."""
+        sock_mndp = self.MockDatagramSocket()
+        sock_onvif = self.MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=self._mock_select):
+            report = VendorManagerEngine.discover_devices(
+                use_mock=False,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+
+        self.assertEqual(report.total_devices, 0)
+        self.assertEqual(len(report.devices), 0)
+        self.assertEqual(report.vulnerable_device_count, 0)
+
+    def test_live_discovery_with_mndp_observation(self) -> None:
+        """Requirement: live scan parses MNDP datagram and distinguishes facts from claims."""
+        sock_mndp = self.MockDatagramSocket()
+        sock_mndp.queue_packet(self.mndp_pkt, sender_ip="192.168.88.1", sender_port=5678, ifindex=1)
+        sock_onvif = self.MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=self._mock_select):
+            with patch("socket.if_indextoname", return_value="eth0"):
+                report = VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    timeout=0.1,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
+
+        self.assertEqual(report.total_devices, 1)
+        dev = report.devices[0]
+        self.assertEqual(dev.category, DeviceCategory.MIKROTIK)
+        self.assertEqual(dev.mac_address, "48:8F:5A:11:22:33")
+        self.assertEqual(dev.model, "RB760iGS")
+        self.assertEqual(dev.name, "CoreRouter")
+
+        # Verify evidence provenance
+        self.assertGreater(len(dev.evidence), 0)
+        fact_records = [e for e in dev.evidence if e.is_verified_fact]
+        claim_records = [e for e in dev.evidence if not e.is_verified_fact]
+
+        # Datagram reception is verified fact (confidence=1.0)
+        self.assertTrue(any(f.attribute == "packet_reception" and f.confidence == 1.0 for f in fact_records))
+
+        # Claimed model and firmware are unverified claims (confidence=0.85)
+        self.assertTrue(any(c.attribute == "model" and c.confidence == 0.85 for c in claim_records))
+        self.assertTrue(any(c.attribute == "firmware_version" and c.confidence == 0.85 for c in claim_records))
+
+    def test_live_discovery_with_onvif_observation(self) -> None:
+        """Requirement: live scan parses ONVIF Hello and populates camera telemetry."""
+        sock_mndp = self.MockDatagramSocket()
+        sock_onvif = self.MockDatagramSocket()
+        sock_onvif.queue_packet(self.onvif_xml_hello, sender_ip="192.168.1.108", sender_port=3702, ifindex=1)
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=self._mock_select):
+            with patch("socket.if_indextoname", return_value="eth0"):
+                report = VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    timeout=0.1,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
+
+        self.assertEqual(report.total_devices, 1)
+        dev = report.devices[0]
+        self.assertEqual(dev.category, DeviceCategory.IP_CAMERA)
+        self.assertIn("DS-2CD2042WD-I", dev.model)
+        self.assertIsNotNone(dev.camera_info)
+        assert dev.camera_info is not None
+        self.assertEqual(dev.camera_info.onvif_port, 80)
+
+        # Verified fact vs claims
+        facts = [e for e in dev.evidence if e.is_verified_fact]
+        self.assertTrue(len(facts) >= 1)
+
+    def test_live_discovery_deduplication_by_mac(self) -> None:
+        """Requirement: duplicate MNDP packets with same MAC address merge into 1 device."""
+        sock_mndp = self.MockDatagramSocket()
+        sock_mndp.queue_packet(self.mndp_pkt, sender_ip="192.168.88.1", sender_port=5678, ifindex=1)
+        sock_mndp.queue_packet(self.mndp_pkt, sender_ip="192.168.88.1", sender_port=5678, ifindex=1)
+        sock_onvif = self.MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=self._mock_select):
+            with patch("socket.if_indextoname", return_value="eth0"):
+                report = VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    timeout=0.1,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
+
+        self.assertEqual(report.total_devices, 1)
+
+    def test_live_discovery_scope_guard_rejection(self) -> None:
+        """Requirement: ScopeGuard drops observations from unauthorized sender IPs."""
+        from itsa_network_os.network.scope import ScopeEnclosure, ScopeGuard
+
+        scope_guard = ScopeGuard(
+            enclosure=ScopeEnclosure.from_strings(cidrs="192.168.88.0/24")
+        )
+
+        sock_mndp = self.MockDatagramSocket()
+        # Packet from unauthorized IP 10.10.10.1
+        sock_mndp.queue_packet(self.mndp_pkt, sender_ip="10.10.10.1", sender_port=5678, ifindex=1)
+        sock_onvif = self.MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=self._mock_select):
+            with patch("socket.if_indextoname", return_value="eth0"):
+                report = VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    timeout=0.1,
+                    scope_guard=scope_guard,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
+
+        # Dropped because 10.10.10.1 is not in 192.168.88.0/24
+        self.assertEqual(report.total_devices, 0)
+
+    def test_live_discovery_scope_guard_interface_mismatch_fails_closed(self) -> None:
+        """Requirement: requesting an interface not authorized in ScopeEnclosure raises ScopeViolationError."""
+        from itsa_network_os.network.scope import ScopeEnclosure, ScopeGuard, ScopeViolationError
+
+        scope_guard = ScopeGuard(
+            enclosure=ScopeEnclosure.from_strings(cidrs="192.168.88.0/24", interfaces="eth0")
+        )
+
+        with self.assertRaises(ScopeViolationError):
+            VendorManagerEngine.discover_devices(
+                use_mock=False,
+                interface="wlan0",
+                scope_guard=scope_guard,
+            )
+
+    def test_live_discovery_onvif_bye_lifecycle(self) -> None:
+        """Requirement: ONVIF Bye announcement notes departure without losing historical evidence."""
+        sock_mndp = self.MockDatagramSocket()
+        sock_onvif = self.MockDatagramSocket()
+        sock_onvif.queue_packet(self.onvif_xml_hello, sender_ip="192.168.1.108", sender_port=3702, ifindex=1)
+        sock_onvif.queue_packet(self.onvif_xml_bye, sender_ip="192.168.1.108", sender_port=3702, ifindex=1)
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=self._mock_select):
+            with patch("socket.if_indextoname", return_value="eth0"):
+                report = VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    timeout=0.1,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
+
+        self.assertEqual(report.total_devices, 1)
+        dev = report.devices[0]
+        self.assertTrue(any("departure" in n.lower() for n in dev.security_notes))
+        # Historical evidence preserved
+        self.assertTrue(len(dev.evidence) >= 2)
+
+
+
 if __name__ == "__main__":
     unittest.main()
+

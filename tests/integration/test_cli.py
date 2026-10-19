@@ -7,6 +7,45 @@ from contextlib import redirect_stderr, redirect_stdout
 from itsa_network_os.main import main
 
 
+class MockDatagramSocket:
+    """Mock socket implementing recvmsg and setsockopt for deterministic testing."""
+
+    def __init__(self, *args, **kwargs):
+        self.closed = False
+        self.bound_addr = None
+        self.sockopts = {}
+        self.packets_queue = []
+
+    def fileno(self):
+        return 42
+
+    def setblocking(self, flag):
+        pass
+
+    def settimeout(self, timeout):
+        pass
+
+    def close(self):
+        self.closed = True
+
+    def bind(self, addr):
+        self.bound_addr = addr
+
+    def setsockopt(self, level, optname, val):
+        self.sockopts[(level, optname)] = val
+
+    def queue_packet(self, data: bytes, sender_ip: str, sender_port: int, ifindex: int = 1):
+        import socket
+        import struct
+        cmsg = [(socket.IPPROTO_IP, getattr(socket, "IP_PKTINFO", 8), struct.pack("iii", ifindex, 0, 0))]
+        self.packets_queue.append((data, cmsg, 0, (sender_ip, sender_port)))
+
+    def recvmsg(self, bufsize, ancbufsize=1024):
+        if self.packets_queue:
+            return self.packets_queue.pop(0)
+        raise BlockingIOError("No packets available")
+
+
 class TestCLIIntegration(unittest.TestCase):
     """End-to-end integration tests for command line entry point."""
 
@@ -309,7 +348,55 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertIn("Total Discovered Devices: 2", stdout_buf.getvalue())
         self.assertIn("RouterOS", stdout_buf.getvalue())
 
+    def test_cli_vendor_scan_live_quiet_network(self) -> None:
+        from unittest.mock import patch
+
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        def mock_select(r, w, x, t):
+            return ([], [], [])
+
+        stdout_buf = io.StringIO()
+        with patch("select.select", side_effect=mock_select):
+            with patch("socket.socket", side_effect=[sock_mndp, sock_onvif]):
+                with redirect_stdout(stdout_buf):
+                    code = main(["--vendor-scan", "--live", "--timeout", "0.05"])
+
+        self.assertEqual(code, 0)
+        out = stdout_buf.getvalue()
+        self.assertIn("LIVE PASSIVE BROADCAST", out)
+        self.assertIn("Zero devices observed", out)
+
+    def test_cli_vendor_scan_live_with_observations(self) -> None:
+        from unittest.mock import patch
+        from itsa_network_os.network.mndp import build_mndp_test_packet
+
+        pkt = build_mndp_test_packet(mac="48:8F:5A:99:88:77", board_name="RB4011")
+        sock_mndp = MockDatagramSocket()
+        sock_mndp.queue_packet(pkt, sender_ip="192.168.10.1", sender_port=5678, ifindex=1)
+        sock_onvif = MockDatagramSocket()
+
+        def mock_select(r, w, x, t):
+            readable = [s for s in r if getattr(s, "packets_queue", None)]
+            return (readable, [], [])
+
+        stdout_buf = io.StringIO()
+        with patch("select.select", side_effect=mock_select):
+            with patch("socket.if_indextoname", return_value="eth0"):
+                with patch("socket.socket", side_effect=[sock_mndp, sock_onvif]):
+                    with redirect_stdout(stdout_buf):
+                        code = main(["--vendor-scan", "--live", "--timeout", "0.05"])
+
+        self.assertEqual(code, 0)
+        out = stdout_buf.getvalue()
+        self.assertIn("LIVE PASSIVE BROADCAST", out)
+        self.assertIn("Total Discovered Devices: 1", out)
+        self.assertIn("RB4011", out)
+        self.assertIn("Evidence Provenance", out)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
