@@ -869,7 +869,7 @@ class TestVendorDiscoveryServiceAndOperationalCorrectness(unittest.TestCase):
 
     def test_contradictory_mode_and_legacy_flags_rejected_by_application(self) -> None:
         """Requirement: Application service layer rejects conflicting mode selections."""
-        app = Application()
+        app = Application(config=AppConfig(database_file=":memory:"))
 
         with self.assertRaises(ValueError):
             app.discover_vendor_devices(mode=DiscoveryMode.LIVE_PASSIVE, use_mock=True)
@@ -889,11 +889,25 @@ class TestVendorDiscoveryServiceAndOperationalCorrectness(unittest.TestCase):
         with self.assertRaises(TypeError):
             app.discover_vendor_devices(mode=123)  # type: ignore[arg-type]
 
+    def test_vendor_manager_tests_use_isolated_database_configuration(self) -> None:
+        """Regression guard (TASK-011D): Ensure vendor manager test configurations are isolated from production DB."""
+        from itsa_network_os.core.config import get_default_config
+
+        default_prod_db = get_default_config().database_file
+
+        test_config = AppConfig(database_file=":memory:")
+        self.assertNotEqual(test_config.database_file, default_prod_db)
+        self.assertEqual(test_config.database_file, ":memory:")
+
+        app = Application(config=test_config)
+        self.assertEqual(app.database.db_path, ":memory:")
+        self.assertNotEqual(app.database.db_path, default_prod_db)
+
     def test_application_service_explicit_live_cannot_be_overridden_by_config(self) -> None:
         """Requirement: config.use_mock_network cannot override explicit live discovery request."""
         from itsa_network_os.core.config import AppConfig
 
-        mock_config = AppConfig(use_mock_network=True)
+        mock_config = AppConfig(use_mock_network=True, database_file=":memory:")
         app = Application(config=mock_config)
 
         sock_mndp = MockDatagramSocket()
