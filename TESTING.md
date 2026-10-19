@@ -46,7 +46,8 @@ QT_QPA_PLATFORM=offscreen .venv/bin/pytest tests/unit/test_gui.py
 ```
 tests/
 ├── integration/
-│   └── test_cli.py               # End-to-end CLI command parsing, flags, --json, exit codes
+│   ├── test_cli.py               # End-to-end CLI command parsing, flags, --json, exit codes
+│   └── test_host_provider.py     # Live host provider inspection, read-only structural invariants
 └── unit/
     ├── test_auditor.py           # Security posture checks, open ports, privilege level
     ├── test_bandwidth.py         # /proc/net/dev parser, rate formatting, delta calculations

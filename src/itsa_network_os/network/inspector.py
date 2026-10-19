@@ -182,6 +182,36 @@ class HostNetworkProvider:
         return ""
 
     @classmethod
+    def classify_interface_type(cls, name: str, link_type: str = "") -> InterfaceType:
+        """Classify interface into InterfaceType enum based on name and link_type."""
+        link_lower = str(link_type).lower().strip()
+        if link_lower == "loopback" or name == "lo":
+            return InterfaceType.LOOPBACK
+        if name.startswith("wl") or "wifi" in name or link_lower in ("wlan", "ieee80211"):
+            return InterfaceType.WIRELESS
+        if (
+            name.startswith(("virbr", "docker", "br-", "lxcbr", "veth", "vnet", "bridge"))
+            or (name.startswith("br") and len(name) > 2 and name[2].isdigit())
+            or link_lower in ("bridge", "veth")
+        ):
+            return InterfaceType.VIRTUAL
+        if name.startswith(("eth", "en", "em")) or link_lower in ("ether", "ethernet"):
+            return InterfaceType.ETHERNET
+        return InterfaceType.UNKNOWN
+
+    @classmethod
+    def classify_interface_state(cls, raw_state: Optional[str]) -> InterfaceState:
+        """Classify operational state string into InterfaceState enum."""
+        if not raw_state:
+            return InterfaceState.UNKNOWN
+        state_upper = str(raw_state).strip().upper()
+        if state_upper == "UP":
+            return InterfaceState.UP
+        if state_upper == "DOWN":
+            return InterfaceState.DOWN
+        return InterfaceState.UNKNOWN
+
+    @classmethod
     def _parse_ip_addr_json(cls, raw_json: str) -> List[NetworkInterface]:
         """Parse 'ip -j addr' JSON output safely into typed NetworkInterface models."""
         try:
@@ -201,24 +231,13 @@ class HostNetworkProvider:
                 continue
 
             mac = item.get("address") or "00:00:00:00:00:00"
-            mtu = int(item.get("mtu", 1500))
+            try:
+                mtu = int(item.get("mtu", 1500))
+            except (ValueError, TypeError):
+                mtu = 1500
 
-            operstate = str(item.get("operstate", "")).upper()
-            state = (
-                InterfaceState.UP
-                if operstate == "UP"
-                else (InterfaceState.DOWN if operstate == "DOWN" else InterfaceState.UNKNOWN)
-            )
-
-            link_type = item.get("link_type", "")
-            if link_type == "loopback" or name == "lo":
-                if_type = InterfaceType.LOOPBACK
-            elif name.startswith("wl") or "wifi" in name:
-                if_type = InterfaceType.WIRELESS
-            elif name.startswith(("virbr", "docker", "br-", "lxcbr", "veth")):
-                if_type = InterfaceType.VIRTUAL
-            else:
-                if_type = InterfaceType.ETHERNET
+            state = cls.classify_interface_state(item.get("operstate"))
+            if_type = cls.classify_interface_type(name, item.get("link_type", ""))
 
             addresses: List[IPAddressInfo] = []
             raw_addr_info = item.get("addr_info", [])
@@ -506,17 +525,11 @@ class HostNetworkProvider:
                 name = iface_dir.name
                 mac = "00:00:00:00:00:00"
                 state = InterfaceState.UNKNOWN
-                if_type = InterfaceType.ETHERNET
-                mtu = 1500
-
                 operstate_file = iface_dir / "operstate"
                 if operstate_file.is_file():
                     try:
-                        content = operstate_file.read_text(encoding="utf-8").strip().lower()
-                        if content == "up":
-                            state = InterfaceState.UP
-                        elif content == "down":
-                            state = InterfaceState.DOWN
+                        content = operstate_file.read_text(encoding="utf-8").strip()
+                        state = cls.classify_interface_state(content)
                     except Exception:
                         pass
 
@@ -534,12 +547,7 @@ class HostNetworkProvider:
                     except Exception:
                         pass
 
-                if name == "lo":
-                    if_type = InterfaceType.LOOPBACK
-                elif name.startswith("wl") or "wifi" in name:
-                    if_type = InterfaceType.WIRELESS
-                elif name.startswith(("virbr", "docker", "br-", "lxcbr", "veth")):
-                    if_type = InterfaceType.VIRTUAL
+                if_type = cls.classify_interface_type(name)
 
                 addresses: List[IPAddressInfo] = []
                 # IPv4 addresses via ioctl

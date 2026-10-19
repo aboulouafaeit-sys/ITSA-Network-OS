@@ -28,14 +28,14 @@ This roadmap outlines the systematic development of ITSA Network OS from its mod
 
 ## 3. Milestone 1: High-Fidelity Local Host Discovery (`MILE-01`)
 
-**Status:** `PLANNED`  
+**Status:** `COMPLETED`  
 **Focus:** Upgrade host interface discovery from partial `/sys/class/net` attributes to full IPv4/IPv6 addresses, netmasks, broadcast addresses, and gateway bindings on Linux.
 
 | Task ID | Task Description | Dependencies | Status | Acceptance Criteria |
 |---|---|---|---|---|
 | **TASK-004** | Linux Kernel IP Address Resolver | TASK-002 | `COMPLETED` | Implement non-destructive socket/netlink/proc resolver in `HostNetworkProvider` extracting real IPv4/IPv6 addresses and CIDR prefix lengths. |
 | **TASK-005** | Local Gateway & DNS Association | TASK-004 | `COMPLETED` | Associate default IPv4/IPv6 gateways and DNS nameservers directly with corresponding parent interfaces in `NetworkInterface`. |
-| **TASK-006** | Unit & Integration Test Expansion for Host Provider | TASK-004 | `PLANNED` | Exhaustive tests verifying interface IP extraction across physical, virtual, loopback, and wireless interfaces. |
+| **TASK-006** | Unit & Integration Test Expansion for Host Provider | TASK-004 | `COMPLETED` | Exhaustive tests verifying interface IP extraction across physical, virtual, loopback, and wireless interfaces. |
 
 ---
 
