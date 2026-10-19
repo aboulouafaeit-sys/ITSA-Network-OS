@@ -1,0 +1,74 @@
+# Architecture Decision Records (ADRs) — ITSA Network OS
+
+> **Document ID:** DOC-ADR-001  
+> **Status:** Active Baseline  
+> **Version:** 1.0.0  
+> **Last Updated:** 2026-10-19  
+
+---
+
+## Index of Technical Decisions
+
+- **ADR-001:** Debian 13 (Trixie) as Foundational Operating System
+- **ADR-002:** Python 3.10+ as Primary Application Core Language
+- **ADR-003:** PySide6 (Qt for Python) for Desktop Graphical Interface
+- **ADR-004:** Offline-First Architecture & Mock Provider Invariants
+- **ADR-005:** Least Privilege by Default & Non-Root Execution
+- **ADR-006:** Local SQLite Storage Without External Telemetry
+- **ADR-007:** Evidence Attribution Over Unverified Device Inferences
+
+---
+
+### ADR-001: Debian 13 (Trixie) as Foundational Operating System
+- **Context:** The platform requires an operating system base that offers maximum hardware stability, extensive native networking packages (iproute2, iw, ethtool, tcpdump), long-term support, and robust live-build tooling.
+- **Decision:** Select Debian 13 (Trixie) as the initial distribution base.
+- **Rationale:** Debian provides predictable packaging, reproducible live-build (`live-build`), wide architecture support (amd64, arm64), and an open governance model suitable for future commercial rebranding.
+- **Consequences:** Distribution engineering leverages `live-build` and `debootstrap`. Commercial licensing must strictly respect Debian's Social Contract and Free Software Guidelines.
+
+---
+
+### ADR-002: Python 3.10+ as Primary Application Core Language
+- **Context:** Core diagnostic logic, protocol parsing, and mathematical calculations need high maintainability, rapid iteration, and cross-platform testability without complex compilation toolchains.
+- **Decision:** Implement application core and diagnostic subsystems in Python 3.10+ (tested against 3.13+).
+- **Rationale:** Standard library networking (`socket`, `ssl`, `ipaddress`, `sqlite3`) covers 90% of non-root diagnostic requirements without external dependencies.
+- **Consequences:** Low-level kernel or raw packet operations requiring microsecond timing or direct C syscalls are encapsulated behind well-defined IPC boundaries rather than scattering C extensions.
+
+---
+
+### ADR-003: PySide6 (Qt for Python) for Desktop Graphical Interface
+- **Context:** The desktop GUI requires high-performance rendering for 2D graphs (real-time bandwidth charts, Dijkstra SPF trees, RF spectrum parabolas, and topology node graphs), dark glassmorphic styling, and native Linux desktop integration.
+- **Decision:** Utilize PySide6 (official Qt for Python) with headless fallback.
+- **Rationale:** Qt Graphics View framework (`QGraphicsScene`, `QPainter`) provides superior hardware-accelerated 2D canvas rendering compared to webview wrappers (Electron) or Tkinter. PySide6 is distributed under the LGPLv3 license, which allows dynamic linking in commercial applications.
+- **Consequences:** PySide6 is an optional dependency for headless/CLI environments; all CLI commands remain 100% operational without Qt installed.
+
+---
+
+### ADR-004: Offline-First Architecture & Mock Provider Invariants
+- **Context:** Network diagnostics are frequently required in air-gapped environments, isolated lab testbeds, or during link-down catastrophic failures.
+- **Decision:** Implement all engines with offline-first deterministic mock provider fallbacks.
+- **Rationale:** Guarantees that automated CI/CD test suites run in isolated containers without internet access, and prevents unhandled crashes when network interfaces are unconfigured.
+- **Consequences:** The UI and CLI must explicitly distinguish between live data and simulated data, never presenting mock data as verified live evidence.
+
+---
+
+### ADR-005: Least Privilege by Default & Non-Root Execution
+- **Context:** Running desktop applications or CLI tools as `root` or under `sudo` presents severe security risks (arbitrary file overwrite, unintended packet generation).
+- **Decision:** Enforce non-root execution across all user-facing interfaces. Flag root execution as a security hazard.
+- **Rationale:** Essential network diagnostics (DNS query, TCP latency, subnet calculation, `/proc` throughput inspection, TLS handshake) can be accomplished cleanly without root privileges.
+- **Consequences:** Operations requiring Linux capabilities (`CAP_NET_RAW`, `CAP_NET_ADMIN`) must be isolated behind documented Polkit or dedicated unprivileged IPC helpers.
+
+---
+
+### ADR-006: Local SQLite Storage Without External Telemetry
+- **Context:** Professional network diagnostic tools handle sensitive infrastructure topology, internal IP addresses, and security vulnerabilities that must remain strictly private.
+- **Decision:** Store diagnostic history in local SQLite databases (`~/.config/itsa-network-os/`) with automated credential scrubbing. Zero telemetry or cloud beaconing.
+- **Rationale:** Guarantees total data sovereignty for security consultants and enterprise administrators.
+- **Consequences:** Multi-device synchronization in future commercial editions must be user-controlled and opt-in.
+
+---
+
+### ADR-007: Evidence Attribution Over Unverified Device Inferences
+- **Context:** Network scanners often guess device operating systems or models from MAC addresses or single open ports, leading to inaccurate diagnostic reports.
+- **Decision:** Enforce evidence tagging on all discovered attributes: track source protocol, timestamp, confidence level, and distinguish verified facts from inferences.
+- **Rationale:** Technical decision-makers require accurate, defensible diagnostic reports.
+- **Consequences:** The discovery engine refuses to claim a model or firmware version is verified unless direct evidence (certificate, SNMP MIB, HTTP banner, ONVIF response) confirms it.

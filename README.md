@@ -25,6 +25,23 @@ ITSA Network OS is designed for network administrators, security engineers, and 
 
 ---
 
+## Project Documentation (Single Source of Truth)
+
+| Document | Purpose |
+|---|---|
+| [VISION.md](VISION.md) | Product mission, target personas, differentiation, commercial editions |
+| [REQUIREMENTS.md](REQUIREMENTS.md) | Traceable functional & non-functional requirements (`REQ-CORE`, `REQ-NET`, etc.) |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, logical modules A through K, and data flow |
+| [ROADMAP.md](ROADMAP.md) | Phased development plan with task identifiers (`TASK-001` to `TASK-018`) |
+| [SECURITY.md](SECURITY.md) | Threat model, privilege boundaries, and safe automation impact levels |
+| [TESTING.md](TESTING.md) | Test strategy, test suites, quality gates, and offscreen GUI testing |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Coding conventions, type annotations, and pull request rules |
+| [CHANGELOG.md](CHANGELOG.md) | Release history, verified capabilities, and version notes |
+| [DECISIONS.md](DECISIONS.md) | Architecture Decision Records (ADR-001 through ADR-007) |
+| [LICENSES.md](LICENSES.md) | Software Bill of Materials (SBOM) and commercial licensing compliance |
+
+---
+
 ## Quick Start
 
 ### 1. Requirements
