@@ -19,9 +19,12 @@ import threading
 import time
 import urllib.parse
 import xml.etree.ElementTree as ET
+import xml.parsers.expat as expat
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Set
+
+from itsa_network_os.network.models import InterfaceConstraintError
 
 # Maximum safe XML payload size (64 KB)
 WS_DISCOVERY_MAX_PAYLOAD_SIZE = 65536
@@ -67,6 +70,7 @@ class ONVIFDiscoveryMessage:
 
     message_type: str
     endpoint_uuid: Optional[str] = None
+    raw_endpoint_address: Optional[str] = None
     types: List[str] = field(default_factory=list)
     scopes: List[str] = field(default_factory=list)
     xaddrs: List[str] = field(default_factory=list)
@@ -90,12 +94,44 @@ def _strip_ns(tag: str) -> str:
     return tag
 
 
+def _validate_xml_security(clean_bytes: bytes) -> None:
+    """Validate XML byte stream against DOCTYPE, entity definitions, and malformed encoding.
+
+    Uses standard library Expat parser configured to unconditionally reject:
+    - DOCTYPE declarations (StartDoctypeDeclHandler)
+    - Entity declarations (EntityDeclHandler)
+    - External entity references (ExternalEntityRefHandler)
+    across any character encoding natively supported by Expat (UTF-8, UTF-16LE, UTF-16BE, ASCII, ISO-8859-1).
+    """
+    # Fast path 1: ASCII/UTF-8 byte pattern
+    if _DTD_ENTITY_PATTERN.search(clean_bytes):
+        raise ValueError("Security violation: XML DOCTYPE or ENTITY declaration detected. Payload rejected.")
+
+    # Defense in depth 2: Multi-encoding Expat parser
+    parser = expat.ParserCreate()
+
+    def _forbid_doctype(*args: Any, **kwargs: Any) -> None:
+        raise ValueError("Security violation: XML DOCTYPE or ENTITY declaration detected. Payload rejected.")
+
+    def _forbid_entity(*args: Any, **kwargs: Any) -> None:
+        raise ValueError("Security violation: XML ENTITY declaration detected. Payload rejected.")
+
+    parser.StartDoctypeDeclHandler = _forbid_doctype
+    parser.EntityDeclHandler = _forbid_entity
+    parser.ExternalEntityRefHandler = _forbid_entity
+
+    try:
+        parser.Parse(clean_bytes, True)
+    except expat.ExpatError as exc:
+        raise ValueError(f"Malformed XML syntax: {exc}") from exc
+
+
 def parse_ws_discovery(data: bytes) -> Optional[ONVIFDiscoveryMessage]:
     """Parse raw WS-Discovery SOAP XML datagram into an ONVIFDiscoveryMessage.
 
     Applies strict, defense-in-depth XML sanitization:
     - Payload size cap: rejects datagrams > 64 KB before XML parsing.
-    - XXE & Billion-Laughs Defense: rejects any payload containing '<!DOCTYPE' or '<!ENTITY'.
+    - XXE & Billion-Laughs Defense: rejects any payload containing '<!DOCTYPE' or '<!ENTITY' across all encodings.
     - ElementTree parsing with zero external network or schema retrieval.
     - Safe extraction and validation of EndpointReference UUID, Types, Scopes, and XAddrs.
     - Bounded string lengths to prevent heap exhaustion.
@@ -121,18 +157,17 @@ def parse_ws_discovery(data: bytes) -> Optional[ONVIFDiscoveryMessage]:
             warnings=[f"Payload size {len(clean_bytes)} exceeds maximum safe limit ({WS_DISCOVERY_MAX_PAYLOAD_SIZE})"],
         )
 
-    # Defense 2: XXE / DTD expansion rejection
-    if _DTD_ENTITY_PATTERN.search(clean_bytes):
+    # Defense 2 & 3: Safe multi-encoding XML security validation and ElementTree parsing
+    try:
+        _validate_xml_security(clean_bytes)
+        root = ET.fromstring(clean_bytes)
+    except ValueError as exc:
         return ONVIFDiscoveryMessage(
             message_type="Unknown",
             is_valid=False,
-            warnings=["Security violation: XML DOCTYPE or ENTITY declaration detected. Payload rejected."],
+            warnings=[str(exc)],
         )
-
-    # Defense 3: Safe ElementTree XML parsing
-    try:
-        root = ET.fromstring(clean_bytes)
-    except (ET.ParseError, UnicodeDecodeError, ValueError) as exc:
+    except (ET.ParseError, UnicodeDecodeError) as exc:
         return ONVIFDiscoveryMessage(
             message_type="Unknown",
             is_valid=False,
@@ -142,6 +177,7 @@ def parse_ws_discovery(data: bytes) -> Optional[ONVIFDiscoveryMessage]:
     warnings: List[str] = []
     message_type = "Unknown"
     endpoint_uuid: Optional[str] = None
+    raw_endpoint_address: Optional[str] = None
     types_list: List[str] = []
     scopes_list: List[str] = []
     xaddrs_list: List[str] = []
@@ -185,10 +221,24 @@ def parse_ws_discovery(data: bytes) -> Optional[ONVIFDiscoveryMessage]:
                 for sub in elem:
                     if _strip_ns(sub.tag) == "Address" and sub.text:
                         raw_addr = sub.text.strip()
-                        if len(raw_addr) <= 256:
-                            endpoint_uuid = raw_addr
-                        else:
+                        raw_endpoint_address = raw_addr
+                        if len(raw_addr) > 256:
                             warnings.append("EndpointReference Address exceeds safe length limit (256 chars)")
+                        else:
+                            # Validate UUID format
+                            addr_lower = raw_addr.lower()
+                            uuid_candidate = raw_addr
+                            if addr_lower.startswith("urn:uuid:"):
+                                uuid_candidate = raw_addr[9:]
+                            elif addr_lower.startswith("uuid:"):
+                                uuid_candidate = raw_addr[5:]
+
+                            if _UUID_PATTERN.match(uuid_candidate.strip()):
+                                endpoint_uuid = f"urn:uuid:{uuid_candidate.strip().lower()}"
+                            else:
+                                warnings.append(
+                                    f"Rejected malformed EndpointReference Address: '{raw_addr[:64]}' is not a valid UUID"
+                                )
 
             elif local_tag == "Types" and elem.text:
                 for t in elem.text.split():
@@ -256,6 +306,7 @@ def parse_ws_discovery(data: bytes) -> Optional[ONVIFDiscoveryMessage]:
     return ONVIFDiscoveryMessage(
         message_type=message_type,
         endpoint_uuid=endpoint_uuid,
+        raw_endpoint_address=raw_endpoint_address,
         types=types_list,
         scopes=scopes_list,
         xaddrs=xaddrs_list,
@@ -418,12 +469,18 @@ class ONVIFPassiveListener:
         target_ifindex: int = 0
         if interface:
             target_iface = InputValidator.validate_interface_name(interface)
-            try:
-                target_ifindex = socket.if_nametoindex(target_iface)
-            except (OSError, ValueError) as exc:
-                raise RuntimeError(
-                    f"Interface '{target_iface}' does not exist on host: {exc}"
-                ) from exc
+            if socket_factory is None:
+                try:
+                    target_ifindex = socket.if_nametoindex(target_iface)
+                except (OSError, ValueError) as exc:
+                    raise InterfaceConstraintError(
+                        f"Requested interface '{target_iface}' does not exist on host: {exc}"
+                    ) from exc
+            else:
+                try:
+                    target_ifindex = socket.if_nametoindex(target_iface)
+                except (OSError, ValueError):
+                    target_ifindex = 1
 
         if socket_factory is not None:
             sock = socket_factory(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -452,7 +509,7 @@ class ONVIFPassiveListener:
 
             # If an interface filter was explicitly requested, verify support
             if target_iface and not pktinfo_supported:
-                raise RuntimeError(
+                raise InterfaceConstraintError(
                     f"Interface filtering on '{target_iface}' cannot be enforced because "
                     "IP_PKTINFO is unavailable on this platform or socket."
                 )

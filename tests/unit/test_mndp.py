@@ -150,6 +150,53 @@ class TestMNDPDecoder(unittest.TestCase):
         self.assertEqual(d["board_name"], "RB760iGS")
         self.assertEqual(d["unknown_tlvs"]["0x1234"], "0102")
 
+    def test_multiple_ipv4_and_ipv6_addresses_preserved(self) -> None:
+        """Requirement: all distinct advertised IPv4 and IPv6 addresses are preserved in order."""
+        raw = build_mndp_test_packet(
+            ipv4=["192.168.88.1", "10.0.0.1", "172.16.0.1"],
+            ipv6=["fe80::1", "2001:db8::1"],
+        )
+        pkt = parse_mndp_packet(raw)
+        self.assertIsNotNone(pkt)
+        assert pkt is not None
+        self.assertTrue(pkt.is_valid)
+        self.assertEqual(pkt.ipv4_addresses, ["192.168.88.1", "10.0.0.1", "172.16.0.1"])
+        self.assertEqual(pkt.ipv4_address, "192.168.88.1")
+        self.assertEqual(pkt.ipv6_addresses, ["fe80::1", "2001:db8::1"])
+        self.assertEqual(pkt.ipv6_address, "fe80::1")
+
+    def test_duplicate_addresses_deduplicated_deterministically(self) -> None:
+        """Requirement: duplicate advertised address TLVs are deduplicated deterministically."""
+        raw = build_mndp_test_packet(
+            ipv4=["192.168.88.1", "10.0.0.1", "192.168.88.1"],
+            ipv6=["fe80::1", "fe80::1"],
+        )
+        pkt = parse_mndp_packet(raw)
+        self.assertIsNotNone(pkt)
+        assert pkt is not None
+        self.assertEqual(pkt.ipv4_addresses, ["192.168.88.1", "10.0.0.1"])
+        self.assertEqual(pkt.ipv6_addresses, ["fe80::1"])
+
+    def test_malformed_ipv4_and_ipv6_tlv_lengths_flagged(self) -> None:
+        """Requirement: malformed IP address TLV lengths record warnings without corrupting valid IPs."""
+        # Valid IPv4, then malformed 3-byte IPv4, then valid second IPv4
+        raw = (
+            b"\x00\x00\x00\x00"
+            + struct.pack(">HH", 0x0011, 4) + b"\xc0\xa8\x58\x01"  # 192.168.88.1
+            + struct.pack(">HH", 0x0011, 3) + b"\x0a\x00\x01"      # truncated 3 bytes
+            + struct.pack(">HH", 0x0011, 4) + b"\x0a\x00\x00\x01"  # 10.0.0.1
+            + struct.pack(">HH", 0x000F, 10) + b"short-ipv6"        # 10 bytes instead of 16
+        )
+        pkt = parse_mndp_packet(raw)
+        self.assertIsNotNone(pkt)
+        assert pkt is not None
+        self.assertTrue(pkt.is_valid)
+        self.assertEqual(pkt.ipv4_addresses, ["192.168.88.1", "10.0.0.1"])
+        self.assertEqual(pkt.ipv4_address, "192.168.88.1")
+        self.assertEqual(pkt.ipv6_addresses, [])
+        self.assertTrue(any("invalid ipv4 tlv length" in w.lower() for w in pkt.warnings))
+        self.assertTrue(any("invalid ipv6 tlv length" in w.lower() for w in pkt.warnings))
+
 
 if __name__ == "__main__":
     unittest.main()

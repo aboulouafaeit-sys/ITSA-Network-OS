@@ -27,6 +27,11 @@ class InterfaceState(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class InterfaceConstraintError(RuntimeError):
+    """Raised when an interface constraint cannot be enforced or the requested interface does not exist."""
+    pass
+
+
 @dataclass(frozen=True)
 class IPAddressInfo:
     """IP address attached to an interface."""

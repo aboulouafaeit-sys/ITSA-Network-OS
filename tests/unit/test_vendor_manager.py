@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import unittest
 
 from itsa_network_os.app import Application
@@ -137,6 +138,7 @@ class MockDatagramSocket:
         self.bound_addr = None
         self.sockopts = {}
         self.packets_queue = []
+        self._lock = threading.Lock()
         self.fail_pktinfo = False
 
     def fileno(self):
@@ -165,11 +167,13 @@ class MockDatagramSocket:
         import socket
         import struct
         cmsg = [(socket.IPPROTO_IP, getattr(socket, "IP_PKTINFO", 8), struct.pack("iii", ifindex, 0, 0))]
-        self.packets_queue.append((data, cmsg, 0, (sender_ip, sender_port)))
+        with self._lock:
+            self.packets_queue.append((data, cmsg, 0, (sender_ip, sender_port)))
 
     def recvmsg(self, bufsize, ancbufsize=1024):
-        if self.packets_queue:
-            return self.packets_queue.pop(0)
+        with self._lock:
+            if self.packets_queue:
+                return self.packets_queue.pop(0)
         raise BlockingIOError("No packets available")
 
 
@@ -202,7 +206,19 @@ class TestLiveVendorDiscovery(unittest.TestCase):
 
     @staticmethod
     def _mock_select(rlist, wlist, xlist, timeout):
-        readable = [s for s in rlist if getattr(s, "packets_queue", None)]
+        readable = []
+        for s in rlist:
+            lock = getattr(s, "_lock", None)
+            if lock:
+                with lock:
+                    if getattr(s, "packets_queue", None):
+                        readable.append(s)
+            else:
+                if getattr(s, "packets_queue", None):
+                    readable.append(s)
+        if not readable and timeout:
+            import time
+            time.sleep(min(float(timeout), 0.02))
         return (readable, [], [])
 
     def test_live_discovery_silent_network_returns_zero_devices(self) -> None:
@@ -359,7 +375,7 @@ class TestLiveVendorDiscovery(unittest.TestCase):
             with patch("socket.if_indextoname", return_value="eth0"):
                 report = VendorManagerEngine.discover_devices(
                     use_mock=False,
-                    timeout=0.1,
+                    timeout=0.2,
                     mndp_socket_factory=lambda *a, **k: sock_mndp,
                     onvif_socket_factory=lambda *a, **k: sock_onvif,
                 )
@@ -369,6 +385,43 @@ class TestLiveVendorDiscovery(unittest.TestCase):
         self.assertTrue(any("departure" in n.lower() for n in dev.security_notes))
         # Historical evidence preserved
         self.assertTrue(len(dev.evidence) >= 2)
+
+    def test_live_discovery_nonexistent_interface_fails_closed(self) -> None:
+        """Requirement: requesting a non-existent interface fails closed with InterfaceConstraintError."""
+        from itsa_network_os.network.models import InterfaceConstraintError
+
+        sock_mndp = self.MockDatagramSocket()
+        sock_onvif = self.MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("socket.if_nametoindex", side_effect=OSError("No such device")):
+            with self.assertRaises(InterfaceConstraintError):
+                VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    interface="nonexistent0",
+                    timeout=0.1,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
+
+    def test_live_discovery_unsupported_pktinfo_fails_closed(self) -> None:
+        """Requirement: requesting interface filter when IP_PKTINFO is unsupported fails closed."""
+        from itsa_network_os.network.models import InterfaceConstraintError
+
+        sock_mndp = self.MockDatagramSocket()
+        sock_mndp.fail_pktinfo = True
+        sock_onvif = self.MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("socket.if_nametoindex", return_value=1):
+            with self.assertRaises(InterfaceConstraintError):
+                VendorManagerEngine.discover_devices(
+                    use_mock=False,
+                    interface="eth0",
+                    timeout=0.1,
+                    mndp_socket_factory=lambda *a, **k: sock_mndp,
+                    onvif_socket_factory=lambda *a, **k: sock_onvif,
+                )
 
 
 

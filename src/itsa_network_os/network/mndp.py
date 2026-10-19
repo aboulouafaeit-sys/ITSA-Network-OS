@@ -18,7 +18,9 @@ import threading
 import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+from itsa_network_os.network.models import InterfaceConstraintError
 
 # Protocol Constants
 MNDP_DEFAULT_PORT = 5678
@@ -82,6 +84,8 @@ class MNDPPacket:
     interface_name: Optional[str] = None
     ipv4_address: Optional[str] = None
     ipv6_address: Optional[str] = None
+    ipv4_addresses: List[str] = field(default_factory=list)
+    ipv6_addresses: List[str] = field(default_factory=list)
     unknown_tlvs: Dict[int, bytes] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
     is_valid: bool = True
@@ -152,8 +156,8 @@ def parse_mndp_packet(data: bytes) -> Optional[MNDPPacket]:
     software_id: Optional[str] = None
     board_name: Optional[str] = None
     interface_name: Optional[str] = None
-    ipv4_address: Optional[str] = None
-    ipv6_address: Optional[str] = None
+    ipv4_addresses: List[str] = []
+    ipv6_addresses: List[str] = []
     unknown_tlvs: Dict[int, bytes] = {}
 
     # Header is 4 bytes (typically 0x00 0x00 sequence/ttl)
@@ -222,7 +226,9 @@ def parse_mndp_packet(data: bytes) -> Optional[MNDPPacket]:
         elif tlv_type == TLV_IPV4_ADDRESS:
             if len(val_bytes) == 4:
                 try:
-                    ipv4_address = str(ipaddress.IPv4Address(val_bytes))
+                    v4_str = str(ipaddress.IPv4Address(val_bytes))
+                    if v4_str not in ipv4_addresses:
+                        ipv4_addresses.append(v4_str)
                 except ValueError as exc:
                     warnings.append(f"Malformed IPv4 address in TLV: {exc}")
             else:
@@ -231,7 +237,9 @@ def parse_mndp_packet(data: bytes) -> Optional[MNDPPacket]:
         elif tlv_type == TLV_IPV6_ADDRESS:
             if len(val_bytes) == 16:
                 try:
-                    ipv6_address = str(ipaddress.IPv6Address(val_bytes))
+                    v6_str = str(ipaddress.IPv6Address(val_bytes))
+                    if v6_str not in ipv6_addresses:
+                        ipv6_addresses.append(v6_str)
                 except ValueError as exc:
                     warnings.append(f"Malformed IPv6 address in TLV: {exc}")
             else:
@@ -258,8 +266,10 @@ def parse_mndp_packet(data: bytes) -> Optional[MNDPPacket]:
         software_id=software_id,
         board_name=board_name,
         interface_name=interface_name,
-        ipv4_address=ipv4_address,
-        ipv6_address=ipv6_address,
+        ipv4_address=ipv4_addresses[0] if ipv4_addresses else None,
+        ipv6_address=ipv6_addresses[0] if ipv6_addresses else None,
+        ipv4_addresses=ipv4_addresses,
+        ipv6_addresses=ipv6_addresses,
         unknown_tlvs=unknown_tlvs,
         warnings=warnings,
         is_valid=True,
@@ -275,8 +285,8 @@ def build_mndp_test_packet(
     software_id: str = "ABCD-1234",
     board_name: str = "RB760iGS",
     interface_name: str = "ether1",
-    ipv4: str = "192.168.88.1",
-    ipv6: Optional[str] = None,
+    ipv4: Optional[Union[str, List[str]]] = "192.168.88.1",
+    ipv6: Optional[Union[str, List[str]]] = None,
     extra_tlvs: Optional[Dict[int, bytes]] = None,
 ) -> bytes:
     """Synthesize a valid MNDP binary payload for deterministic offline testing.
@@ -326,17 +336,21 @@ def build_mndp_test_packet(
     buf.extend(struct.pack(">HH", TLV_INTERFACE_NAME, len(iface_bytes)))
     buf.extend(iface_bytes)
 
-    # IPv4
+    # IPv4 (single or multiple)
     if ipv4:
-        v4_bytes = ipaddress.IPv4Address(ipv4).packed
-        buf.extend(struct.pack(">HH", TLV_IPV4_ADDRESS, len(v4_bytes)))
-        buf.extend(v4_bytes)
+        v4_items = [ipv4] if isinstance(ipv4, str) else ipv4
+        for item in v4_items:
+            v4_bytes = ipaddress.IPv4Address(item).packed
+            buf.extend(struct.pack(">HH", TLV_IPV4_ADDRESS, len(v4_bytes)))
+            buf.extend(v4_bytes)
 
-    # IPv6
+    # IPv6 (single or multiple)
     if ipv6:
-        v6_bytes = ipaddress.IPv6Address(ipv6).packed
-        buf.extend(struct.pack(">HH", TLV_IPV6_ADDRESS, len(v6_bytes)))
-        buf.extend(v6_bytes)
+        v6_items = [ipv6] if isinstance(ipv6, str) else ipv6
+        for item in v6_items:
+            v6_bytes = ipaddress.IPv6Address(item).packed
+            buf.extend(struct.pack(">HH", TLV_IPV6_ADDRESS, len(v6_bytes)))
+            buf.extend(v6_bytes)
 
     # Extra/Unknown TLVs
     if extra_tlvs:
@@ -423,6 +437,13 @@ class MNDPPassiveListener:
         target_iface: Optional[str] = None
         if interface:
             target_iface = InputValidator.validate_interface_name(interface)
+            if socket_factory is None:
+                try:
+                    socket.if_nametoindex(target_iface)
+                except (OSError, ValueError) as exc:
+                    raise InterfaceConstraintError(
+                        f"Requested interface '{target_iface}' does not exist on host: {exc}"
+                    ) from exc
 
         if socket_factory is not None:
             sock = socket_factory(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
@@ -450,7 +471,7 @@ class MNDPPassiveListener:
 
             # If an interface filter was explicitly requested, verify support
             if target_iface and not pktinfo_supported:
-                raise RuntimeError(
+                raise InterfaceConstraintError(
                     f"Interface filtering on '{target_iface}' cannot be enforced because "
                     "IP_PKTINFO is unavailable on this platform or socket."
                 )

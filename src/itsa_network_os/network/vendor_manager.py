@@ -10,7 +10,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from itsa_network_os.network.mndp import MNDPObservation, MNDPPassiveListener
-from itsa_network_os.network.models import EvidenceProtocol, EvidenceRecord
+from itsa_network_os.network.models import EvidenceProtocol, EvidenceRecord, InterfaceConstraintError
 from itsa_network_os.network.onvif import ONVIFObservation, ONVIFPassiveListener
 
 if TYPE_CHECKING:
@@ -547,6 +547,17 @@ class VendorManagerEngine:
                     f"Requested interface '{interface}' is not in authorized interfaces: {list(scope_guard.enclosure.interfaces)}"
                 )
 
+        if interface is not None:
+            from itsa_network_os.security.validator import InputValidator
+
+            validated_iface = InputValidator.validate_interface_name(interface)
+            try:
+                socket.if_nametoindex(validated_iface)
+            except (OSError, ValueError) as exc:
+                raise InterfaceConstraintError(
+                    f"Requested interface '{validated_iface}' does not exist on host: {exc}"
+                ) from exc
+
         mndp_listener = MNDPPassiveListener()
         onvif_listener = ONVIFPassiveListener()
 
@@ -566,6 +577,8 @@ class VendorManagerEngine:
                 mndp_observations.extend(obs)
             except Exception as exc:
                 listener_errors.append(exc)
+                if isinstance(exc, InterfaceConstraintError):
+                    stop_event.set()
 
         def listen_onvif() -> None:
             try:
@@ -578,6 +591,8 @@ class VendorManagerEngine:
                 onvif_observations.extend(obs)
             except Exception as exc:
                 listener_errors.append(exc)
+                if isinstance(exc, InterfaceConstraintError):
+                    stop_event.set()
 
         t_mndp = threading.Thread(
             target=listen_mndp, name="MNDP-Passive-Worker", daemon=True
@@ -593,9 +608,9 @@ class VendorManagerEngine:
         t_mndp.join(timeout=join_timeout)
         t_onvif.join(timeout=join_timeout)
 
-        # Check if mandatory interface filtering error occurred
+        # Fail closed immediately if any interface constraint error occurred
         for err in listener_errors:
-            if isinstance(err, RuntimeError) and "cannot be enforced" in str(err).lower():
+            if isinstance(err, InterfaceConstraintError):
                 raise err
 
         discovered_devices: Dict[str, ManagedDevice] = {}
@@ -678,6 +693,28 @@ class VendorManagerEngine:
                         is_verified_fact=False,
                         attribute="mac_address",
                         details=f"Claimed hardware MAC: {pkt.mac_address}",
+                    )
+                )
+            if pkt.ipv4_addresses:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="advertised_ipv4_addresses",
+                        details=f"Claimed advertised IPv4 addresses: {', '.join(pkt.ipv4_addresses)}",
+                    )
+                )
+            if pkt.ipv6_addresses:
+                claims.append(
+                    EvidenceRecord(
+                        source_protocol=EvidenceProtocol.MNDP,
+                        timestamp=now_iso,
+                        confidence=0.85,
+                        is_verified_fact=False,
+                        attribute="advertised_ipv6_addresses",
+                        details=f"Claimed advertised IPv6 addresses: {', '.join(pkt.ipv6_addresses)}",
                     )
                 )
 
