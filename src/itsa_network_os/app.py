@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import List, Optional
+from typing import Iterable, List, Optional, Union
 
 from itsa_network_os.core.config import AppConfig, get_default_config, load_config
 from itsa_network_os.core.health import HealthCheckService, SystemHealthReport
@@ -13,6 +13,7 @@ from itsa_network_os.network.inspector import NetworkInspector
 from itsa_network_os.network.latency import LatencyBenchmarkResult, LatencyTester
 from itsa_network_os.network.models import NetworkInterface, SubnetCalculationResult
 from itsa_network_os.network.routes import RouteEntry, RouteParser
+from itsa_network_os.network.scope import ScopeEnclosure, ScopeGuard, ScopeViolationError
 from itsa_network_os.network.subnet import SubnetCalculator
 from itsa_network_os.network.wifi import (
     AccessPointInfo,
@@ -42,7 +43,38 @@ class Application:
         self.logger = setup_logging(level=self.config.log_level)
         self.database = DatabaseManager(self.config.database_file)
         self._traffic_monitor = TrafficMonitorEngine(use_mock=self.config.use_mock_network)
+        self.scope_guard = ScopeGuard()
         self.logger.debug("Application initialized with configuration: %s", self.config.app_name)
+
+    def set_authorized_scope(
+        self,
+        scope: Union[ScopeEnclosure, str, Iterable[str]],
+        interfaces: Union[str, Iterable[str]] = (),
+        allow_loopback: bool = True,
+        allow_global_internet: bool = False,
+    ) -> ScopeEnclosure:
+        """Configure user-authorized network scope enclosure for runtime boundary enforcement."""
+        if isinstance(scope, ScopeEnclosure):
+            enclosure = scope
+        else:
+            enclosure = ScopeEnclosure.from_strings(
+                cidrs=scope,
+                interfaces=interfaces,
+                allow_loopback=allow_loopback,
+                allow_global_internet=allow_global_internet,
+            )
+        self.scope_guard.set_enclosure(enclosure)
+        self.logger.info("Configured authorized network scope enclosure: %s", enclosure.to_dict())
+        return enclosure
+
+    def get_authorized_scope(self) -> Optional[ScopeEnclosure]:
+        """Retrieve currently configured ScopeEnclosure, or None if unconstrained."""
+        return self.scope_guard.enclosure
+
+    def clear_authorized_scope(self) -> None:
+        """Clear the active scope enclosure, resetting to unconstrained."""
+        self.scope_guard.clear()
+        self.logger.info("Cleared authorized network scope enclosure")
 
     def check_health(self) -> SystemHealthReport:
         """Run system diagnostics."""
@@ -99,6 +131,7 @@ class Application:
         self, host: str, port: int = 443, count: int = 4, force_live: bool = False
     ) -> LatencyBenchmarkResult:
         """Run safe non-root latency benchmark."""
+        self.scope_guard.assert_authorized(host)
         use_mock = self.config.use_mock_network and not force_live
         self.logger.info("Benchmarking latency to %s:%d (count=%d, mock=%s)", host, port, count, use_mock)
         result = LatencyTester.benchmark(host, port=port, count=count, use_mock=use_mock)
@@ -168,6 +201,7 @@ class Application:
         """Inspect TLS endpoint certificates, cipher suites, and cryptographic integrity."""
         sanitized_host = InputValidator.validate_hostname(host)
         sanitized_port = InputValidator.validate_port(port)
+        self.scope_guard.assert_authorized(sanitized_host)
 
         use_mock = self.config.use_mock_network and not force_live
         self.logger.info("Executing TLS inspection for %s:%d (mock=%s)", sanitized_host, sanitized_port, use_mock)

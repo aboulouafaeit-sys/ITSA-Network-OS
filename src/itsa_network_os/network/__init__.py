@@ -24,6 +24,11 @@ from itsa_network_os.network.models import (
     SubnetCalculationResult,
 )
 from itsa_network_os.network.routes import RouteEntry, RouteParser, VlanInfo
+from itsa_network_os.network.scope import (
+    ScopeEnclosure,
+    ScopeGuard,
+    ScopeViolationError,
+)
 from itsa_network_os.network.subnet import SubnetCalculationError, SubnetCalculator
 from itsa_network_os.network.topology import (
     NetworkTopology,
@@ -122,6 +127,9 @@ __all__ = [
     "DeviceSecurityStatus",
     "ManagedDevice",
     "RouterOSTelemetry",
+    "ScopeEnclosure",
+    "ScopeGuard",
+    "ScopeViolationError",
     "VendorDiscoveryReport",
     "VendorManagerEngine",
     "WirelessLinkTelemetry",

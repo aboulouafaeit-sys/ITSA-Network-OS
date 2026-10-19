@@ -61,6 +61,7 @@ tests/
     ├── test_latency.py           # TCP handshake round-trip latency, jitter, loss
     ├── test_live_recipe.py       # Debian live-build config, hooks, desktop files
     ├── test_routes.py            # /proc/net/route parser, hex-to-IP conversion, VLANs
+    ├── test_scope.py             # Authorized network scope enclosure, CIDR boundaries, runtime guard
     ├── test_spf.py               # OSPF Dijkstra SPF tree calculations, link failure
     ├── test_subnet.py            # IPv4/IPv6 RFC subnet math, /31 point-to-point, /32
     ├── test_tls.py               # TLS handshake, X.509 cert analysis, cipher grading

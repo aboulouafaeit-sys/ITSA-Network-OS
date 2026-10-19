@@ -9,6 +9,7 @@ from typing import List, Optional
 from itsa_network_os import __app_name__, __version__
 from itsa_network_os.app import Application
 from itsa_network_os.core.config import AppConfig
+from itsa_network_os.network.scope import ScopeViolationError
 from itsa_network_os.network.subnet import SubnetCalculationError
 from itsa_network_os.reports.exporter import ReportExporter
 from itsa_network_os.security.validator import SecurityValidationError
@@ -153,6 +154,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Frequency band for spectrum analysis (default: 2.4ghz)",
     )
     parser.add_argument(
+        "--scope",
+        metavar="CIDRS",
+        type=str,
+        help="Authorized network CIDR scope enclosure (comma-separated, e.g. 192.168.1.0/24,10.0.0.0/16)",
+    )
+    parser.add_argument(
+        "--scope-interface",
+        metavar="IFACE",
+        type=str,
+        default=None,
+        help="Optional interface constraint for authorized network scope",
+    )
+    parser.add_argument(
         "--live",
         action="store_true",
         help="Execute live queries instead of using safe mock provider",
@@ -208,6 +222,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     try:
+        # Configure authorized network scope enclosure if specified
+        if args.scope:
+            ifaces = [args.scope_interface] if args.scope_interface else ()
+            app.set_authorized_scope(args.scope, interfaces=ifaces)
+
         if args.health:
             report = app.check_health()
             if args.json:
