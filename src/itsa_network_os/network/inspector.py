@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import ipaddress
+import json
 import os
+import subprocess
 from pathlib import Path
-from typing import List, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 from itsa_network_os.network.models import (
     InterfaceState,
@@ -61,15 +64,277 @@ class MockNetworkProvider:
 
 
 class HostNetworkProvider:
-    """Safe, strictly read-only interface inspector reading from Linux /sys/class/net."""
+    """Safe, strictly read-only interface and address inspector reading from Linux kernel APIs."""
+
+    @classmethod
+    def classify_ip_scope(cls, addr_str: str, kernel_scope: Optional[str] = None) -> str:
+        """Classify IP address scope using standard library ipaddress and kernel attributes."""
+        try:
+            ip_obj = ipaddress.ip_address(addr_str)
+            if ip_obj.is_loopback:
+                return "host"
+            if ip_obj.is_link_local:
+                return "link-local"
+
+            if ip_obj.version == 6:
+                if getattr(ip_obj, "is_site_local", False):
+                    return "site-local"
+                if kernel_scope:
+                    return "link-local" if kernel_scope == "link" else kernel_scope
+                if getattr(ip_obj, "is_global", False):
+                    return "global"
+                # Check if it is a Unique Local Address (ULA) fc00::/7 (fc00:: through fdff:...)
+                if (ip_obj.packed[0] & 0xFE) == 0xFC:
+                    return "unique-local"
+                return "global"
+            else:
+                if kernel_scope:
+                    return "link-local" if kernel_scope == "link" else kernel_scope
+                if getattr(ip_obj, "is_global", False):
+                    return "global"
+                return "private" if ip_obj.is_private else "global"
+        except ValueError:
+            return kernel_scope or "unknown"
+
+    @classmethod
+    def calculate_netmask(cls, family: str, prefix_len: int) -> str:
+        """Calculate netmask string from prefix length using standard library ipaddress."""
+        try:
+            if family == "IPv4" and 0 <= prefix_len <= 32:
+                return str(ipaddress.IPv4Network(f"0.0.0.0/{prefix_len}").netmask)
+            elif family == "IPv6" and 0 <= prefix_len <= 128:
+                return str(ipaddress.IPv6Network(f"::/{prefix_len}").netmask)
+        except Exception:
+            pass
+        return ""
+
+    @classmethod
+    def _parse_ip_addr_json(cls, raw_json: str) -> List[NetworkInterface]:
+        """Parse 'ip -j addr' JSON output safely into typed NetworkInterface models."""
+        try:
+            entries = json.loads(raw_json)
+            if not isinstance(entries, list):
+                return []
+        except Exception:
+            return []
+
+        interfaces: List[NetworkInterface] = []
+        for item in entries:
+            if not isinstance(item, dict):
+                continue
+
+            name = item.get("ifname")
+            if not name:
+                continue
+
+            mac = item.get("address") or "00:00:00:00:00:00"
+            mtu = int(item.get("mtu", 1500))
+
+            operstate = str(item.get("operstate", "")).upper()
+            state = (
+                InterfaceState.UP
+                if operstate == "UP"
+                else (InterfaceState.DOWN if operstate == "DOWN" else InterfaceState.UNKNOWN)
+            )
+
+            link_type = item.get("link_type", "")
+            if link_type == "loopback" or name == "lo":
+                if_type = InterfaceType.LOOPBACK
+            elif name.startswith("wl") or "wifi" in name:
+                if_type = InterfaceType.WIRELESS
+            elif name.startswith(("virbr", "docker", "br-", "lxcbr", "veth")):
+                if_type = InterfaceType.VIRTUAL
+            else:
+                if_type = InterfaceType.ETHERNET
+
+            addresses: List[IPAddressInfo] = []
+            raw_addr_info = item.get("addr_info", [])
+            if isinstance(raw_addr_info, list):
+                for a in raw_addr_info:
+                    if not isinstance(a, dict):
+                        continue
+                    local_ip = a.get("local")
+                    if not local_ip:
+                        continue
+
+                    raw_fam = str(a.get("family", "")).lower()
+                    family = "IPv6" if raw_fam == "inet6" else "IPv4" if raw_fam == "inet" else "UNKNOWN"
+
+                    prefix_len = int(a.get("prefixlen", 0))
+                    netmask = cls.calculate_netmask(family, prefix_len)
+
+                    # Broadcast handling
+                    broadcast = a.get("broadcast") if family == "IPv4" else None
+
+                    # Scope handling
+                    kernel_scope = a.get("scope")
+                    scope = cls.classify_ip_scope(local_ip, kernel_scope)
+
+                    # Extract boolean flags
+                    flag_keys = [
+                        "dynamic",
+                        "mngtmpaddr",
+                        "noprefixroute",
+                        "temporary",
+                        "secondary",
+                        "deprecated",
+                        "tentative",
+                        "homeaddress",
+                    ]
+                    flags = [k for k in flag_keys if a.get(k) is True]
+
+                    addresses.append(
+                        IPAddressInfo(
+                            address=local_ip,
+                            prefix_length=prefix_len,
+                            family=family,
+                            netmask=netmask,
+                            broadcast=broadcast,
+                            scope=scope,
+                            flags=flags,
+                        )
+                    )
+
+            interfaces.append(
+                NetworkInterface(
+                    name=name,
+                    mac_address=mac,
+                    state=state,
+                    interface_type=if_type,
+                    mtu=mtu,
+                    addresses=addresses,
+                )
+            )
+
+        return interfaces
+
+    @classmethod
+    def _parse_if_inet6(cls, content: str) -> Dict[str, List[IPAddressInfo]]:
+        """Parse Linux /proc/net/if_inet6 contents safely."""
+        result: Dict[str, List[IPAddressInfo]] = {}
+        scope_map = {
+            0x00: "global",
+            0x10: "host",
+            0x20: "link-local",
+            0x40: "site-local",
+            0x80: "compatv4",
+        }
+
+        for line in content.splitlines():
+            parts = line.strip().split()
+            if len(parts) < 6:
+                continue
+
+            raw_ip, _idx_hex, prefix_hex, scope_hex, flags_hex, ifname = parts[:6]
+            if len(raw_ip) != 32:
+                continue
+
+            try:
+                grouped = ":".join(raw_ip[i : i + 4] for i in range(0, 32, 4))
+                addr = str(ipaddress.IPv6Address(grouped))
+                prefix_len = int(prefix_hex, 16)
+                scope_code = int(scope_hex, 16)
+                kernel_scope = scope_map.get(scope_code, "unknown")
+                scope = cls.classify_ip_scope(addr, kernel_scope)
+                netmask = cls.calculate_netmask("IPv6", prefix_len)
+                flags = [f"0x{flags_hex}"]
+
+                info = IPAddressInfo(
+                    address=addr,
+                    prefix_length=prefix_len,
+                    family="IPv6",
+                    netmask=netmask,
+                    broadcast=None,
+                    scope=scope,
+                    flags=flags,
+                )
+                result.setdefault(ifname, []).append(info)
+            except Exception:
+                continue
+
+        return result
+
+    @classmethod
+    def _query_ipv4_ioctl(cls, ifname: str) -> List[IPAddressInfo]:
+        """Query interface IPv4 address, netmask, and broadcast using ioctl (Linux SIOCGIF*)."""
+        import fcntl
+        import socket
+        import struct
+
+        SIOCGIFADDR = 0x8915
+        SIOCGIFNETMASK = 0x891B
+        SIOCGIFBRDADDR = 0x8919
+
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            ifreq = struct.pack("256s", ifname.encode("utf-8")[:15])
+
+            addr = socket.inet_ntoa(fcntl.ioctl(sock.fileno(), SIOCGIFADDR, ifreq)[20:24])
+            netmask = socket.inet_ntoa(fcntl.ioctl(sock.fileno(), SIOCGIFNETMASK, ifreq)[20:24])
+            try:
+                bcast_raw = fcntl.ioctl(sock.fileno(), SIOCGIFBRDADDR, ifreq)[20:24]
+                broadcast = socket.inet_ntoa(bcast_raw)
+            except Exception:
+                broadcast = None
+
+            prefix_len = ipaddress.IPv4Network(f"0.0.0.0/{netmask}").prefixlen
+            scope = cls.classify_ip_scope(addr)
+
+            return [
+                IPAddressInfo(
+                    address=addr,
+                    prefix_length=prefix_len,
+                    family="IPv4",
+                    netmask=netmask,
+                    broadcast=broadcast,
+                    scope=scope,
+                    flags=[],
+                )
+            ]
+        except Exception:
+            return []
+        finally:
+            if sock:
+                sock.close()
 
     def get_interfaces(self) -> List[NetworkInterface]:
+        """Fetch list of real host network interfaces and addresses safely."""
+        # Method 1: ip -j addr (high-fidelity JSON)
+        try:
+            res = subprocess.run(
+                ["ip", "-j", "addr"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=2.0,
+            )
+            if res.returncode == 0 and res.stdout.strip():
+                interfaces = self._parse_ip_addr_json(res.stdout)
+                if interfaces:
+                    return interfaces
+        except Exception:
+            pass
+
+        # Method 2: Kernel filesystem (/sys/class/net + /proc/net/if_inet6 + ioctl)
+        return self._discover_from_proc_and_sys()
+
+    def _discover_from_proc_and_sys(self) -> List[NetworkInterface]:
+        """Discover interfaces and addresses from /sys/class/net and /proc/net/if_inet6."""
         interfaces: List[NetworkInterface] = []
         sys_net = Path("/sys/class/net")
 
         if not sys_net.is_dir():
-            # Not on Linux or /sys is unavailable; fallback to mock data safely
-            return MockNetworkProvider().get_interfaces()
+            return []
+
+        # Read IPv6 addresses from /proc/net/if_inet6
+        inet6_map: Dict[str, List[IPAddressInfo]] = {}
+        proc_inet6 = Path("/proc/net/if_inet6")
+        if proc_inet6.is_file():
+            try:
+                inet6_map = self._parse_if_inet6(proc_inet6.read_text(encoding="utf-8"))
+            except Exception:
+                pass
 
         try:
             for iface_dir in sys_net.iterdir():
@@ -82,34 +347,44 @@ class HostNetworkProvider:
                 if_type = InterfaceType.ETHERNET
                 mtu = 1500
 
-                # Read operstate
                 operstate_file = iface_dir / "operstate"
                 if operstate_file.is_file():
-                    content = operstate_file.read_text(encoding="utf-8").strip().lower()
-                    if content == "up":
-                        state = InterfaceState.UP
-                    elif content == "down":
-                        state = InterfaceState.DOWN
+                    try:
+                        content = operstate_file.read_text(encoding="utf-8").strip().lower()
+                        if content == "up":
+                            state = InterfaceState.UP
+                        elif content == "down":
+                            state = InterfaceState.DOWN
+                    except Exception:
+                        pass
 
-                # Read MAC address
                 address_file = iface_dir / "address"
                 if address_file.is_file():
-                    mac = address_file.read_text(encoding="utf-8").strip()
+                    try:
+                        mac = address_file.read_text(encoding="utf-8").strip() or mac
+                    except Exception:
+                        pass
 
-                # Read MTU
                 mtu_file = iface_dir / "mtu"
                 if mtu_file.is_file():
                     try:
                         mtu = int(mtu_file.read_text(encoding="utf-8").strip())
-                    except ValueError:
-                        mtu = 1500
+                    except Exception:
+                        pass
 
                 if name == "lo":
                     if_type = InterfaceType.LOOPBACK
                 elif name.startswith("wl") or "wifi" in name:
                     if_type = InterfaceType.WIRELESS
-                elif name.startswith(("virbr", "docker", "br-")):
+                elif name.startswith(("virbr", "docker", "br-", "lxcbr", "veth")):
                     if_type = InterfaceType.VIRTUAL
+
+                addresses: List[IPAddressInfo] = []
+                # IPv4 addresses via ioctl
+                addresses.extend(self._query_ipv4_ioctl(name))
+                # IPv6 addresses via /proc/net/if_inet6
+                if name in inet6_map:
+                    addresses.extend(inet6_map[name])
 
                 interfaces.append(
                     NetworkInterface(
@@ -118,13 +393,13 @@ class HostNetworkProvider:
                         state=state,
                         interface_type=if_type,
                         mtu=mtu,
-                        addresses=[],
+                        addresses=addresses,
                     )
                 )
         except Exception:
-            return MockNetworkProvider().get_interfaces()
+            return []
 
-        return interfaces if interfaces else MockNetworkProvider().get_interfaces()
+        return interfaces
 
 
 class NetworkInspector:

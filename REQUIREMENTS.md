@@ -37,7 +37,7 @@ Requirements in ITSA Network OS are assigned stable alphanumeric identifiers. Ev
 
 | ID | Title | Level | Status | Specification |
 |---|---|---|---|---|
-| **REQ-NET-001** | Local Interface Discovery | Level 1 | `IN_PROGRESS` | Must discover all host physical, virtual, and loopback interfaces, operstate, MAC address, MTU, IPv4 addresses, IPv6 addresses, and netmasks from the Linux kernel. |
+| **REQ-NET-001** | Local Interface Discovery | Level 1 | `VERIFIED` | Must discover all host physical, virtual, and loopback interfaces, operstate, MAC address, MTU, IPv4 addresses, IPv6 addresses, and netmasks from the Linux kernel. |
 | **REQ-NET-002** | RFC Subnet Calculation | Level 1 | `VERIFIED` | Must calculate exact network address, broadcast, netmask, wildcard mask, host capacity, and usable range for IPv4/IPv6, including RFC 3021 /31 point-to-point subnets. |
 | **REQ-NET-003** | Non-Root Latency Benchmarking | Level 2 | `VERIFIED` | Must benchmark TCP round-trip latency to a target host and port without root privileges, computing min, max, average, and jitter. |
 | **REQ-NET-004** | DNS Diagnostics | Level 2 | `VERIFIED` | Must resolve host records (A, AAAA) safely, record response latency in milliseconds, and parse system nameservers from `/etc/resolv.conf`. |

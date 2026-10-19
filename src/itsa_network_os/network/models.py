@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 class InterfaceType(str, Enum):
@@ -33,6 +33,9 @@ class IPAddressInfo:
     prefix_length: int
     family: str  # IPv4 or IPv6
     netmask: str = ""
+    broadcast: Optional[str] = None
+    scope: Optional[str] = None
+    flags: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
