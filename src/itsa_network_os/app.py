@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import threading
 from typing import Iterable, List, Optional, Union
 
 from itsa_network_os.core.config import AppConfig, get_default_config, load_config
@@ -26,6 +27,7 @@ from itsa_network_os.network.bandwidth import BandwidthRate, TrafficMonitorEngin
 from itsa_network_os.network.spf import SPFSimulationResult, SPFSimulatorEngine
 from itsa_network_os.network.vendor_manager import (
     DeviceCategory,
+    DiscoveryMode,
     VendorDiscoveryReport,
     VendorManagerEngine,
 )
@@ -284,8 +286,21 @@ class Application:
         interface: Optional[str] = None,
         mndp_socket_factory: Optional[Any] = None,
         onvif_socket_factory: Optional[Any] = None,
+        mode: Optional[Union[DiscoveryMode, str]] = None,
+        use_mock: Optional[bool] = None,
+        stop_event: Optional[threading.Event] = None,
     ) -> VendorDiscoveryReport:
-        """Discover and inspect multi-vendor hardware (MikroTik, Ubiquiti, TP-Link CPE, ONVIF Cameras)."""
+        """Discover and inspect multi-vendor hardware (MikroTik, Ubiquiti, TP-Link CPE, ONVIF Cameras).
+
+        Mode resolution rules:
+        - If mode is specified, it takes canonical precedence.
+        - If use_mock is specified without mode, it resolves to MOCK if True, LIVE_PASSIVE if False.
+        - If force_live=True is specified, it resolves to LIVE_PASSIVE.
+        - Contradictory combinations (e.g., force_live=True with use_mock=True or mode='mock') raise ValueError.
+        - Explicit live requests (force_live=True or mode=LIVE_PASSIVE or use_mock=False) can never be overridden
+          by application configuration.
+        - If neither mode, use_mock, nor force_live=True is passed, falls back to config.use_mock_network.
+        """
         cat_enum: Optional[DeviceCategory] = None
         if category:
             cat_lower = category.lower().strip()
@@ -300,24 +315,74 @@ class Application:
             elif "linux" in cat_lower or "ubuntu" in cat_lower or "srv" in cat_lower:
                 cat_enum = DeviceCategory.LINUX_SERVER
 
-        use_mock = self.config.use_mock_network and not force_live
+        # Validate and resolve canonical discovery mode
+        if mode is not None:
+            if isinstance(mode, DiscoveryMode):
+                norm_mode = mode
+            elif isinstance(mode, str):
+                try:
+                    norm_mode = DiscoveryMode(mode)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid discovery mode: {mode!r}. Must be one of {[m.value for m in DiscoveryMode]}"
+                    )
+            else:
+                raise TypeError(
+                    f"mode must be a DiscoveryMode or str, got {type(mode).__name__}"
+                )
+
+            # Check contradictions with use_mock
+            if use_mock is not None:
+                if norm_mode == DiscoveryMode.LIVE_PASSIVE and use_mock is True:
+                    raise ValueError(
+                        "Contradictory discovery parameters: mode='live_passive' conflicts with use_mock=True"
+                    )
+                if norm_mode == DiscoveryMode.MOCK and use_mock is False:
+                    raise ValueError(
+                        "Contradictory discovery parameters: mode='mock' conflicts with use_mock=False"
+                    )
+
+            # Check contradictions with force_live
+            if force_live and norm_mode == DiscoveryMode.MOCK:
+                raise ValueError(
+                    "Contradictory discovery parameters: force_live=True conflicts with mode='mock'"
+                )
+
+        elif use_mock is not None:
+            if force_live and use_mock is True:
+                raise ValueError(
+                    "Contradictory discovery parameters: force_live=True conflicts with use_mock=True"
+                )
+            norm_mode = DiscoveryMode.MOCK if use_mock else DiscoveryMode.LIVE_PASSIVE
+
+        elif force_live:
+            norm_mode = DiscoveryMode.LIVE_PASSIVE
+
+        else:
+            norm_mode = (
+                DiscoveryMode.MOCK
+                if self.config.use_mock_network
+                else DiscoveryMode.LIVE_PASSIVE
+            )
+
         if interface is None and self.scope_guard.enclosure and len(self.scope_guard.enclosure.interfaces) == 1:
             interface = self.scope_guard.enclosure.interfaces[0]
 
         self.logger.info(
-            "Executing multi-vendor device discovery (filter=%s, mock=%s, timeout=%.1fs, iface=%s)",
+            "Executing multi-vendor device discovery (filter=%s, mode=%s, timeout=%.1fs, iface=%s)",
             cat_enum,
-            use_mock,
+            norm_mode.value,
             timeout,
             interface,
         )
         return VendorManagerEngine.discover_devices(
             category_filter=cat_enum,
-            use_mock=use_mock,
+            mode=norm_mode,
             timeout=timeout,
             interface=interface,
-            scope_guard=self.scope_guard if not use_mock else None,
+            scope_guard=self.scope_guard if norm_mode == DiscoveryMode.LIVE_PASSIVE else None,
             mndp_socket_factory=mndp_socket_factory,
             onvif_socket_factory=onvif_socket_factory,
+            stop_event=stop_event,
         )
 

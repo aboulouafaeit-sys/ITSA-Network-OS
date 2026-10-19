@@ -395,8 +395,175 @@ class TestCLIIntegration(unittest.TestCase):
         self.assertIn("RB4011", out)
         self.assertIn("Evidence Provenance", out)
 
+    def test_cli_vendor_scan_explicit_mock_flag(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--vendor-scan", "--mock"])
+        self.assertEqual(code, 0)
+        out = stdout_buf.getvalue()
+        self.assertIn("OFFLINE MOCK / SIMULATED FIXTURES", out)
+        self.assertIn("simulated mock fixtures for offline lab testing", out)
+
+    def test_cli_vendor_scan_live_and_mock_mutually_exclusive(self) -> None:
+        stderr_buf = io.StringIO()
+        with redirect_stderr(stderr_buf):
+            with self.assertRaises(SystemExit) as cm:
+                main(["--vendor-scan", "--live", "--mock"])
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("Cannot specify both --live and --mock", stderr_buf.getvalue())
+
+    def test_cli_vendor_scan_json_provenance_fields(self) -> None:
+        stdout_buf = io.StringIO()
+        with redirect_stdout(stdout_buf):
+            code = main(["--vendor-scan", "--json"])
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertEqual(output["mode"], "mock")
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(output["is_live"], False)
+        self.assertEqual(output["is_mock"], True)
+        self.assertIsNone(output["error_message"])
+        self.assertEqual(output["total_devices"], 8)
+        self.assertIsInstance(output["devices"], list)
+
+    def test_cli_vendor_scan_live_json_quiet_network(self) -> None:
+        from unittest.mock import patch
+
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        def mock_select(r, w, x, t):
+            return ([], [], [])
+
+        stdout_buf = io.StringIO()
+        with patch("select.select", side_effect=mock_select):
+            with patch("socket.socket", side_effect=[sock_mndp, sock_onvif]):
+                with redirect_stdout(stdout_buf):
+                    code = main(["--vendor-scan", "--live", "--json", "--timeout", "0.05"])
+
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_buf.getvalue())
+        self.assertEqual(output["mode"], "live_passive")
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(output["is_live"], True)
+        self.assertEqual(output["is_mock"], False)
+        self.assertEqual(output["total_devices"], 0)
+        self.assertEqual(output["devices"], [])
+
+    def test_cli_vendor_scan_live_failed_output(self) -> None:
+        from unittest.mock import patch
+        from itsa_network_os.network.vendor_manager import (
+            DiscoveryMode,
+            DiscoveryStatus,
+            VendorDiscoveryReport,
+        )
+
+        failed_report = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            status=DiscoveryStatus.FAILED,
+            error_message="Socket bind failed: permission denied",
+        )
+
+        # Text mode
+        stdout_buf = io.StringIO()
+        with patch("itsa_network_os.app.Application.discover_vendor_devices", return_value=failed_report):
+            with redirect_stdout(stdout_buf):
+                code = main(["--vendor-scan", "--live"])
+
+        self.assertEqual(code, 0)
+        out = stdout_buf.getvalue()
+        self.assertIn("DISCOVERY OPERATION FAILED", out)
+        self.assertIn("Socket bind failed: permission denied", out)
+        self.assertNotIn("Displaying simulated offline fixtures", out)
+
+        # JSON mode
+        stdout_json = io.StringIO()
+        with patch("itsa_network_os.app.Application.discover_vendor_devices", return_value=failed_report):
+            with redirect_stdout(stdout_json):
+                code = main(["--vendor-scan", "--live", "--json"])
+
+        self.assertEqual(code, 0)
+        output = json.loads(stdout_json.getvalue())
+        self.assertEqual(output["mode"], "live_passive")
+        self.assertEqual(output["status"], "failed")
+        self.assertEqual(output["error_message"], "Socket bind failed: permission denied")
+        self.assertEqual(output["total_devices"], 0)
+
+    def test_cli_vendor_scan_live_partial_output(self) -> None:
+        from unittest.mock import patch
+        from itsa_network_os.network.vendor_manager import (
+            DiscoveryMode,
+            DiscoveryStatus,
+            VendorDiscoveryReport,
+            VendorManagerEngine,
+        )
+
+        mock_dev = VendorManagerEngine.get_mock_devices()[0]
+        partial_report = VendorDiscoveryReport(
+            total_devices=1,
+            category_counts={mock_dev.category.value: 1},
+            devices=[mock_dev],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            status=DiscoveryStatus.PARTIAL,
+            error_message="ONVIF listener thread aborted",
+        )
+
+        stdout_buf = io.StringIO()
+        with patch("itsa_network_os.app.Application.discover_vendor_devices", return_value=partial_report):
+            with redirect_stdout(stdout_buf):
+                code = main(["--vendor-scan", "--live"])
+
+        self.assertEqual(code, 0)
+        out = stdout_buf.getvalue()
+        self.assertIn("PARTIAL DISCOVERY RESULTS", out)
+        self.assertIn("ONVIF listener thread aborted", out)
+        self.assertIn(mock_dev.name, out)
+
+    def test_cli_vendor_scan_live_timed_out_and_cancelled(self) -> None:
+        from unittest.mock import patch
+        from itsa_network_os.network.vendor_manager import (
+            DiscoveryMode,
+            DiscoveryStatus,
+            VendorDiscoveryReport,
+        )
+
+        timeout_report = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            status=DiscoveryStatus.TIMED_OUT,
+            error_message="Worker listener did not terminate within timeout",
+        )
+        stdout_buf = io.StringIO()
+        with patch("itsa_network_os.app.Application.discover_vendor_devices", return_value=timeout_report):
+            with redirect_stdout(stdout_buf):
+                code = main(["--vendor-scan", "--live"])
+        self.assertEqual(code, 0)
+        self.assertIn("DISCOVERY OPERATION TIMED OUT", stdout_buf.getvalue())
+
+        cancel_report = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            status=DiscoveryStatus.CANCELLED,
+            error_message="User requested cancellation",
+        )
+        stdout_cancel = io.StringIO()
+        with patch("itsa_network_os.app.Application.discover_vendor_devices", return_value=cancel_report):
+            with redirect_stdout(stdout_cancel):
+                code = main(["--vendor-scan", "--live"])
+        self.assertEqual(code, 0)
+        self.assertIn("DISCOVERY OPERATION CANCELLED", stdout_cancel.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
-
-

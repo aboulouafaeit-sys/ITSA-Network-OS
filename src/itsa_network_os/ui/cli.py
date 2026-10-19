@@ -15,7 +15,7 @@ from itsa_network_os.network.wifi import AccessPointInfo, ChannelCongestionRepor
 from itsa_network_os.security.auditor import SecurityAuditReport
 from itsa_network_os.security.lab import ParsedPacket
 from itsa_network_os.network.spf import SPFSimulationResult
-from itsa_network_os.network.vendor_manager import VendorDiscoveryReport
+from itsa_network_os.network.vendor_manager import DiscoveryStatus, VendorDiscoveryReport
 from itsa_network_os.security.tls import TLSInspectionReport
 
 
@@ -321,18 +321,28 @@ class TerminalFormatter:
     @staticmethod
     def print_vendor_discovery(
         report: VendorDiscoveryReport,
-        is_live: bool = False,
+        is_live: Optional[bool] = None,
         timeout: float = 5.0,
     ) -> None:
         """Render multi-vendor hardware inventory and IP surveillance camera diagnostics."""
-        mode_str = (
-            "LIVE PASSIVE BROADCAST / MULTICAST"
-            if is_live
+        actual_is_live = getattr(report, "is_live", is_live if is_live is not None else False)
+        status = getattr(report, "status", DiscoveryStatus.COMPLETED)
+        if isinstance(status, str):
+            try:
+                status = DiscoveryStatus(status)
+            except ValueError:
+                status = DiscoveryStatus.COMPLETED
+
+        mode_header = (
+            "LIVE PASSIVE BROADCAST DISCOVERY"
+            if actual_is_live
             else "OFFLINE MOCK / SIMULATED FIXTURES"
         )
         print("\n=====================================================================================================")
-        print(f"          Multi-Vendor Network Hardware & IP Surveillance Device Inventory ({mode_str})               ")
+        print(f"          Multi-Vendor Network Hardware & IP Surveillance Device Inventory ({mode_header})               ")
         print("=====================================================================================================")
+        print(f" Discovery Mode          : {mode_header}")
+        print(f" Operational Status      : {status.value.upper()}")
         print(f" Total Discovered Devices: {report.total_devices}")
         counts_str = (
             " | ".join(f"{k}: {v}" for k, v in report.category_counts.items())
@@ -343,13 +353,45 @@ class TerminalFormatter:
         if report.vulnerable_device_count > 0:
             print(f" Security Advisories     : [!] {report.vulnerable_device_count} device(s) have warnings or default credentials!")
 
-        if is_live and report.total_devices == 0:
+        if getattr(report, "error_message", None):
+            print(f" Diagnostic Notice       : [!] {report.error_message}")
+
+        if status == DiscoveryStatus.FAILED:
+            print("\n [!] DISCOVERY OPERATION FAILED")
+            print(f"     Failure Reason: {report.error_message or 'Unknown listener or socket error.'}")
+            print("     Note: Failed scans do not reflect network state and are not an empty scan.")
+            print("=====================================================================================================\n")
+            return
+
+        if status == DiscoveryStatus.CANCELLED:
+            print("\n [-] DISCOVERY OPERATION CANCELLED")
+            print("     The passive discovery operation was explicitly cancelled before completion.")
+            print("=====================================================================================================\n")
+            return
+
+        if status == DiscoveryStatus.TIMED_OUT:
+            print("\n [!] DISCOVERY OPERATION TIMED OUT")
+            print(f"     Notice: {report.error_message or 'Worker threads reached join timeout without normal completion.'}")
+            print("=====================================================================================================\n")
+            return
+
+        if status == DiscoveryStatus.PARTIAL:
+            print("\n [!] PARTIAL DISCOVERY RESULTS")
+            print(f"     Degraded Mode Notice: {report.error_message or 'One listener failed while another completed.'}")
+            print(f"     Preserving {report.total_devices} observation(s) from healthy listener.")
+
+        if actual_is_live and report.total_devices == 0 and status == DiscoveryStatus.COMPLETED:
             print(f"\n [*] Zero devices observed during passive listening interval ({timeout:.1f}s).")
             print("     Note: Passive listeners (MNDP UDP 5678, ONVIF UDP 3702) never transmit discovery queries.")
             print("     Quiet networks or devices that announce periodically may not emit packets during this window.")
-            print("     This scan is non-exhaustive; silent network operation is expected and normal.")
+            print("     This scan is non-exhaustive; no devices were observed during this listening window.")
+            print("     (This does NOT claim that the network contains no devices.)")
             print("=====================================================================================================\n")
             return
+
+        if not actual_is_live:
+            print("\n [i] NOTICE: The devices listed below are simulated mock fixtures for offline lab testing.")
+            print("     They do NOT represent actual network traffic or live hardware observations.")
 
         print("\n-----------------------------------------------------------------------------------------------------")
         print(f" {'ID':<7} | {'Device Name':<26} | {'Vendor':<12} | {'Category':<22} | {'IP Address':<15} | {'Status'}")

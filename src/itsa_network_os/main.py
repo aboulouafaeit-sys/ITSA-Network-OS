@@ -11,6 +11,7 @@ from itsa_network_os.app import Application
 from itsa_network_os.core.config import AppConfig
 from itsa_network_os.network.scope import ScopeViolationError
 from itsa_network_os.network.subnet import SubnetCalculationError
+from itsa_network_os.network.vendor_manager import DiscoveryMode
 from itsa_network_os.reports.exporter import ReportExporter
 from itsa_network_os.security.validator import SecurityValidationError
 from itsa_network_os.ui.cli import TerminalFormatter
@@ -178,6 +179,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute live queries instead of using safe mock provider",
     )
     parser.add_argument(
+        "--mock",
+        action="store_true",
+        help="Explicitly use simulated offline mock fixtures",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Output results in JSON format",
@@ -189,6 +195,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     """Application main entry point function."""
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if getattr(args, "live", False) and getattr(args, "mock", False):
+        parser.error("Cannot specify both --live and --mock.")
 
     # Initialize application with safe defaults (in-memory SQLite for ephemeral CLI runs)
     config = AppConfig(database_file=":memory:")
@@ -391,8 +400,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             filter_cat = "camera" if args.cams else args.vendor
             scan_timeout = getattr(args, "timeout", 5.0) or 5.0
             scan_iface = getattr(args, "scope_interface", None)
+
+            explicit_mode: Optional[DiscoveryMode] = None
+            if getattr(args, "live", False):
+                explicit_mode = DiscoveryMode.LIVE_PASSIVE
+            elif getattr(args, "mock", False):
+                explicit_mode = DiscoveryMode.MOCK
+
             vendor_report = app.discover_vendor_devices(
                 category=filter_cat,
+                mode=explicit_mode,
                 force_live=args.live,
                 timeout=scan_timeout,
                 interface=scan_iface,
@@ -403,7 +420,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 TerminalFormatter.print_banner()
                 TerminalFormatter.print_vendor_discovery(
                     vendor_report,
-                    is_live=args.live,
+                    is_live=vendor_report.is_live,
                     timeout=scan_timeout,
                 )
             return 0

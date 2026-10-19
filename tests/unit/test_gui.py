@@ -83,6 +83,102 @@ class TestDesktopGUI(unittest.TestCase):
         except ImportError:
             self.skipTest("PySide6 not available for GUI test")
 
+    def test_vendor_widget_provenance_and_mode_selection(self) -> None:
+        """Verify GUI displays clear provenance badges, handles quiet network, and refuses mock fallback on error."""
+        try:
+            from unittest.mock import patch
+            from PySide6.QtWidgets import QApplication
+            from itsa_network_os.network.vendor_manager import (
+                DiscoveryMode,
+                DiscoveryStatus,
+                VendorDiscoveryReport,
+            )
+            from itsa_network_os.ui.desktop.vendor_canvas import VendorDeviceManagerWidget
+
+            qt_app = QApplication.instance() or QApplication(["test_app", "-platform", "offscreen"])
+            app = Application(config=AppConfig(database_file=":memory:"))
+            widget = VendorDeviceManagerWidget(app=app)
+
+            # 1. Initial State: Explicit Mock Mode
+            self.assertIsNotNone(widget.current_report)
+            self.assertTrue(widget.current_report.is_mock)
+            self.assertFalse(widget.current_report.is_live)
+            self.assertIn("OFFLINE MOCK / SIMULATED FIXTURES", widget.lbl_provenance_badge.text())
+            self.assertIn("simulated lab fixtures", widget.status_banner.text())
+            self.assertEqual(widget.devices_table.rowCount(), 8)
+
+            # 2. Explicit User Action: Live Discovery on Quiet Network
+            quiet_report = VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                status=DiscoveryStatus.COMPLETED,
+            )
+            with patch.object(app, "discover_vendor_devices", return_value=quiet_report) as mock_disc:
+                widget.btn_live_scan.click()
+                mock_disc.assert_called_once_with(mode=DiscoveryMode.LIVE_PASSIVE, timeout=5.0)
+
+            self.assertIn("LIVE PASSIVE (QUIET NETWORK - 0 DEVICES)", widget.lbl_provenance_badge.text())
+            self.assertIn("Zero devices observed", widget.status_banner.text())
+            self.assertIn("This does NOT claim that the network contains no devices", widget.status_banner.text())
+            self.assertEqual(widget.devices_table.rowCount(), 0)
+            self.assertFalse(widget.current_report.is_mock)
+            self.assertTrue(widget.current_report.is_live)
+
+            # 3. Live Discovery Failure: Refuse silent mock fallback
+            failed_report = VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                status=DiscoveryStatus.FAILED,
+                error_message="Socket permission denied: need CAP_NET_RAW",
+            )
+            with patch.object(app, "discover_vendor_devices", return_value=failed_report):
+                widget.btn_live_scan.click()
+
+            self.assertIn("LIVE DISCOVERY FAILED", widget.lbl_provenance_badge.text())
+            self.assertIn("Socket permission denied", widget.status_banner.text())
+            self.assertEqual(widget.devices_table.rowCount(), 0)
+            self.assertFalse(widget.current_report.is_mock)
+
+            # 4. Return to Mock Fixtures explicitly
+            widget.btn_mock.click()
+            self.assertIn("OFFLINE MOCK / SIMULATED FIXTURES", widget.lbl_provenance_badge.text())
+            self.assertIn("simulated lab fixtures", widget.status_banner.text())
+            self.assertEqual(widget.devices_table.rowCount(), 8)
+            self.assertTrue(widget.current_report.is_mock)
+
+        except ImportError:
+            self.skipTest("PySide6 not available for GUI test")
+
+    def test_vendor_widget_no_auto_live_discovery_on_open(self) -> None:
+        """Verify opening/rendering the GUI does NOT trigger live network discovery."""
+        try:
+            from unittest.mock import patch
+            from PySide6.QtWidgets import QApplication
+            from itsa_network_os.network.vendor_manager import DiscoveryMode
+            from itsa_network_os.ui.desktop.vendor_canvas import VendorDeviceManagerWidget
+
+            qt_app = QApplication.instance() or QApplication(["test_app", "-platform", "offscreen"])
+            app = Application(config=AppConfig(database_file=":memory:"))
+
+            with patch.object(app, "discover_vendor_devices") as mock_disc:
+                widget = VendorDeviceManagerWidget(app=app)
+                # Verify live discovery was NOT called on widget initialization
+                for call_args in mock_disc.call_args_list:
+                    self.assertNotEqual(
+                        call_args.kwargs.get("mode"),
+                        DiscoveryMode.LIVE_PASSIVE,
+                        "Live discovery was automatically triggered on widget instantiation!",
+                    )
+
+        except ImportError:
+            self.skipTest("PySide6 not available for GUI test")
+
 
 if __name__ == "__main__":
     unittest.main()

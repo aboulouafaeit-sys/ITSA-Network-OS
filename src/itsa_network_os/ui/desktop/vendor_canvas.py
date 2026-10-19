@@ -30,6 +30,8 @@ from itsa_network_os.network.vendor_manager import (
     CameraTelemetry,
     DeviceCategory,
     DeviceSecurityStatus,
+    DiscoveryMode,
+    DiscoveryStatus,
     ManagedDevice,
     RouterOSTelemetry,
     VendorDiscoveryReport,
@@ -41,18 +43,20 @@ from itsa_network_os.network.vendor_manager import (
 class VendorDeviceManagerWidget(QWidget):  # type: ignore
     """Interactive desktop dashboard widget for inspecting multi-vendor devices and IP surveillance cameras."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, app: Optional[Any] = None) -> None:
         super().__init__(parent)
+        self.app = app or getattr(parent, "app", None)
         self.all_devices: List[ManagedDevice] = []
         self.current_filtered_devices: List[ManagedDevice] = []
         self.selected_device: Optional[ManagedDevice] = None
         self.active_category_filter: Optional[DeviceCategory] = None
+        self.current_report: Optional[VendorDiscoveryReport] = None
 
         if not PYSIDE6_AVAILABLE:
             return
 
         self._build_ui()
-        self.refresh_devices()
+        self.load_mock_fixtures()
 
     def _build_ui(self) -> None:
         """Construct user interface layout and controls."""
@@ -76,18 +80,59 @@ class VendorDeviceManagerWidget(QWidget):  # type: ignore
         sub.setStyleSheet("color: #8b949e; font-size: 12px;")
         title_box.addWidget(title)
         title_box.addWidget(sub)
+
+        # Provenance badge
+        self.lbl_provenance_badge = QLabel("🧪 OFFLINE MOCK / SIMULATED FIXTURES")
+        self.lbl_provenance_badge.setStyleSheet(
+            "background-color: #382400; color: #f2cc60; border: 1px solid #bb8009; "
+            "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+        )
+        title_box.addWidget(self.lbl_provenance_badge)
+
         header_layout.addLayout(title_box, stretch=1)
 
-        self.btn_scan = QPushButton("🔄 Scan & Discover")
-        self.btn_scan.setStyleSheet(
-            "QPushButton { background-color: #238636; color: #ffffff; font-weight: bold; "
-            "border: none; border-radius: 6px; padding: 8px 18px; font-size: 12px; } "
-            "QPushButton:hover { background-color: #2ea043; } "
-            "QPushButton:pressed { background-color: #1a6f2c; }"
+        btn_box = QHBoxLayout()
+        btn_box.setSpacing(8)
+
+        self.btn_live_scan = QPushButton("📡 Start Live Passive Discovery")
+        self.btn_live_scan.setToolTip(
+            "Passively listen on UDP 5678 (MNDP) and UDP 3702 (ONVIF) for broadcast announcements.\n"
+            "Strictly unprivileged and non-transmitting (zero active queries)."
         )
-        self.btn_scan.clicked.connect(self.refresh_devices)
-        header_layout.addWidget(self.btn_scan)
+        self.btn_live_scan.setStyleSheet(
+            "QPushButton { background-color: #1f6feb; color: #ffffff; font-weight: bold; "
+            "border: none; border-radius: 6px; padding: 8px 14px; font-size: 12px; } "
+            "QPushButton:hover { background-color: #388bfd; } "
+            "QPushButton:pressed { background-color: #1158c7; }"
+        )
+        self.btn_live_scan.clicked.connect(lambda: self.start_live_discovery(timeout=5.0))
+        btn_box.addWidget(self.btn_live_scan)
+
+        self.btn_mock = QPushButton("🧪 Load Mock Fixtures")
+        self.btn_mock.setToolTip("Load simulated laboratory hardware profiles for offline demonstration.")
+        self.btn_mock.setStyleSheet(
+            "QPushButton { background-color: #21262d; color: #c9d1d9; font-weight: bold; "
+            "border: 1px solid #30363d; border-radius: 6px; padding: 8px 14px; font-size: 12px; } "
+            "QPushButton:hover { background-color: #30363d; color: #ffffff; } "
+            "QPushButton:pressed { background-color: #161b22; }"
+        )
+        self.btn_mock.clicked.connect(self.load_mock_fixtures)
+        btn_box.addWidget(self.btn_mock)
+
+        # Legacy alias for test compatibility
+        self.btn_scan = self.btn_mock
+
+        header_layout.addLayout(btn_box)
         main_layout.addLayout(header_layout)
+
+        # Status & Diagnostic Notification Banner
+        self.status_banner = QLabel("")
+        self.status_banner.setWordWrap(True)
+        self.status_banner.setStyleSheet(
+            "background-color: #161b22; color: #8b949e; border: 1px solid #30363d; "
+            "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+        )
+        main_layout.addWidget(self.status_banner)
 
         # Filter Category Bar
         filter_card = QFrame()
@@ -283,10 +328,142 @@ class VendorDeviceManagerWidget(QWidget):  # type: ignore
             btn.setStyleSheet(self._filter_btn_style(cat == category))
         self._apply_filter()
 
+    def load_mock_fixtures(self) -> None:
+        """Explicitly load simulated laboratory hardware profiles for offline demonstration."""
+        report = VendorManagerEngine.discover_devices(category_filter=None, mode=DiscoveryMode.MOCK)
+        self._apply_report(report)
+
+    def start_live_discovery(self, timeout: float = 5.0) -> None:
+        """Execute explicit live passive broadcast listening."""
+        if self.app is not None:
+            report = self.app.discover_vendor_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=timeout,
+            )
+        else:
+            report = VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=timeout,
+            )
+        self._apply_report(report)
+
     def refresh_devices(self) -> None:
-        """Execute mock discovery and populate device lists."""
-        report = VendorManagerEngine.discover_devices(category_filter=None, use_mock=True)
+        """Backwards-compatible method for reloading mock devices."""
+        self.load_mock_fixtures()
+
+    def _apply_report(self, report: VendorDiscoveryReport) -> None:
+        """Update UI state, badges, banners, and KPI cards from discovery report."""
+        self.current_report = report
         self.all_devices = report.devices
+
+        # Update Provenance Badge and Status Banner
+        if report.is_mock:
+            self.lbl_provenance_badge.setText("🧪 OFFLINE MOCK / SIMULATED FIXTURES")
+            self.lbl_provenance_badge.setStyleSheet(
+                "background-color: #382400; color: #f2cc60; border: 1px solid #bb8009; "
+                "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+            )
+            self.status_banner.setText(
+                "Displaying simulated lab fixtures for offline demonstration. "
+                "These profiles do NOT represent actual network traffic or live hardware observations."
+            )
+            self.status_banner.setStyleSheet(
+                "background-color: #161b22; color: #d29922; border: 1px solid #bb8009; "
+                "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+            )
+            self.status_banner.setVisible(True)
+
+        elif report.is_live:
+            if report.status == DiscoveryStatus.COMPLETED:
+                if report.total_devices == 0:
+                    self.lbl_provenance_badge.setText("📡 LIVE PASSIVE (QUIET NETWORK - 0 DEVICES)")
+                    self.lbl_provenance_badge.setStyleSheet(
+                        "background-color: #0c2d6b; color: #58a6ff; border: 1px solid #1f6feb; "
+                        "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+                    )
+                    self.status_banner.setText(
+                        "Zero devices observed during passive listening interval. "
+                        "Quiet network detected; passive listeners (MNDP UDP 5678, ONVIF UDP 3702) never transmit discovery queries. "
+                        "This does NOT claim that the network contains no devices."
+                    )
+                    self.status_banner.setStyleSheet(
+                        "background-color: #0c2d6b; color: #58a6ff; border: 1px solid #1f6feb; "
+                        "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+                    )
+                else:
+                    self.lbl_provenance_badge.setText(f"📡 LIVE PASSIVE DISCOVERY ({report.total_devices} DEVICES)")
+                    self.lbl_provenance_badge.setStyleSheet(
+                        "background-color: #0d381e; color: #3fb950; border: 1px solid #238636; "
+                        "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+                    )
+                    self.status_banner.setText(
+                        f"Live passive listening completed successfully. Discovered {report.total_devices} multi-vendor device(s)."
+                    )
+                    self.status_banner.setStyleSheet(
+                        "background-color: #0d381e; color: #3fb950; border: 1px solid #238636; "
+                        "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+                    )
+                self.status_banner.setVisible(True)
+
+            elif report.status == DiscoveryStatus.PARTIAL:
+                self.lbl_provenance_badge.setText("⚠️ LIVE PASSIVE (PARTIAL DEGRADED)")
+                self.lbl_provenance_badge.setStyleSheet(
+                    "background-color: #382400; color: #f2cc60; border: 1px solid #bb8009; "
+                    "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+                )
+                self.status_banner.setText(
+                    f"Partial discovery results: {report.error_message or 'One listener failed.'} "
+                    f"Preserving {report.total_devices} observation(s) from healthy listener."
+                )
+                self.status_banner.setStyleSheet(
+                    "background-color: #382400; color: #f2cc60; border: 1px solid #bb8009; "
+                    "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+                )
+                self.status_banner.setVisible(True)
+
+            elif report.status == DiscoveryStatus.FAILED:
+                self.lbl_provenance_badge.setText("❌ LIVE DISCOVERY FAILED")
+                self.lbl_provenance_badge.setStyleSheet(
+                    "background-color: #490202; color: #f85149; border: 1px solid #da3633; "
+                    "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+                )
+                self.status_banner.setText(
+                    f"Discovery failed: {report.error_message or 'Unknown listener or socket error.'} "
+                    "(Failed operations are not an empty scan and do not fall back to mock data)."
+                )
+                self.status_banner.setStyleSheet(
+                    "background-color: #490202; color: #f85149; border: 1px solid #da3633; "
+                    "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+                )
+                self.status_banner.setVisible(True)
+
+            elif report.status == DiscoveryStatus.CANCELLED:
+                self.lbl_provenance_badge.setText("⛔ LIVE DISCOVERY CANCELLED")
+                self.lbl_provenance_badge.setStyleSheet(
+                    "background-color: #21262d; color: #8b949e; border: 1px solid #30363d; "
+                    "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+                )
+                self.status_banner.setText("Passive discovery operation was explicitly cancelled.")
+                self.status_banner.setStyleSheet(
+                    "background-color: #21262d; color: #8b949e; border: 1px solid #30363d; "
+                    "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+                )
+                self.status_banner.setVisible(True)
+
+            elif report.status == DiscoveryStatus.TIMED_OUT:
+                self.lbl_provenance_badge.setText("⏱️ LIVE DISCOVERY TIMED OUT")
+                self.lbl_provenance_badge.setStyleSheet(
+                    "background-color: #490202; color: #f85149; border: 1px solid #da3633; "
+                    "border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 11px;"
+                )
+                self.status_banner.setText(
+                    f"Discovery workers timed out without normal completion: {report.error_message or ''}"
+                )
+                self.status_banner.setStyleSheet(
+                    "background-color: #490202; color: #f85149; border: 1px solid #da3633; "
+                    "border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+                )
+                self.status_banner.setVisible(True)
 
         # Update KPI cards
         val_tot: QLabel = self.card_total.property("val_label")
@@ -305,6 +482,24 @@ class VendorDeviceManagerWidget(QWidget):  # type: ignore
         val_sec.setStyleSheet("color: #f85149;" if report.vulnerable_device_count > 0 else "color: #3fb950;")
 
         self._apply_filter()
+
+    def _clear_details(self) -> None:
+        """Clear telemetry inspection card when device list is empty."""
+        self.selected_device = None
+        self.lbl_tel_title.setText("(No Device Selected)")
+        self.lbl_tel_sub.setText("Select a device from the inventory table to view hardware telemetry.")
+        self.lbl_spec_ip.setText("-")
+        self.lbl_spec_mac.setText("-")
+        self.lbl_spec_vendor.setText("-")
+        self.lbl_spec_fw.setText("-")
+        self.lbl_spec_proto.setText("-")
+        self.lbl_specialized_header.setText("Hardware Telemetry:")
+        self.content_box.setText("No active telemetry records.")
+        self.advisory_box.setText("No active security advisories.")
+        self.advisory_box.setStyleSheet(
+            "background-color: #0d1117; color: #8b949e; border: 1px solid #30363d; "
+            "border-radius: 6px; padding: 6px 10px; font-size: 11px;"
+        )
 
     def _apply_filter(self) -> None:
         """Filter table rows based on active category selection."""
@@ -336,6 +531,8 @@ class VendorDeviceManagerWidget(QWidget):  # type: ignore
 
         if self.current_filtered_devices:
             self.devices_table.selectRow(0)
+        else:
+            self._clear_details()
 
     def _on_table_selection_changed(self) -> None:
         """Update telemetry card when user selects a different row."""

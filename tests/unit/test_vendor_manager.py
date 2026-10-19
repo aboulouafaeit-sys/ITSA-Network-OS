@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import threading
 import unittest
 
@@ -11,6 +12,8 @@ from itsa_network_os.network.vendor_manager import (
     CameraTelemetry,
     DeviceCategory,
     DeviceSecurityStatus,
+    DiscoveryMode,
+    DiscoveryStatus,
     ManagedDevice,
     RouterOSTelemetry,
     VendorDiscoveryReport,
@@ -423,6 +426,571 @@ class TestLiveVendorDiscovery(unittest.TestCase):
                     onvif_socket_factory=lambda *a, **k: sock_onvif,
                 )
 
+class TestVendorDiscoveryReportProvenance(unittest.TestCase):
+    """Test suite for canonical discovery provenance, status tracking, and serialization (TASK-010A)."""
+
+    def test_discovery_mode_and_status_enum_values(self) -> None:
+        """Requirement: DiscoveryMode and DiscoveryStatus enums expose expected values."""
+        self.assertEqual(DiscoveryMode.LIVE_PASSIVE.value, "live_passive")
+        self.assertEqual(DiscoveryMode.MOCK.value, "mock")
+        self.assertEqual(DiscoveryStatus.COMPLETED.value, "completed")
+        self.assertEqual(DiscoveryStatus.FAILED.value, "failed")
+        self.assertEqual(DiscoveryStatus.CANCELLED.value, "cancelled")
+        self.assertEqual(DiscoveryStatus.TIMED_OUT.value, "timed_out")
+
+    def test_default_construction_defaults_to_mock_provenance(self) -> None:
+        """Requirement: Default report construction without explicit mode defaults to MOCK, never live."""
+        report = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+        )
+        self.assertEqual(report.mode, DiscoveryMode.MOCK)
+        self.assertEqual(report.status, DiscoveryStatus.COMPLETED)
+        self.assertTrue(report.is_mock)
+        self.assertFalse(report.is_live)
+        self.assertIsNone(report.error_message)
+
+    def test_derived_provenance_properties_are_consistent_and_readonly(self) -> None:
+        """Requirement: is_live and is_mock are strictly derived from mode and are read-only."""
+        live_report = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            status=DiscoveryStatus.COMPLETED,
+        )
+        self.assertTrue(live_report.is_live)
+        self.assertFalse(live_report.is_mock)
+
+        # Confirm properties are read-only
+        with self.assertRaises(AttributeError):
+            live_report.is_live = False  # type: ignore[misc]
+        with self.assertRaises(AttributeError):
+            live_report.is_mock = True  # type: ignore[misc]
+
+        mock_report = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.MOCK,
+            status=DiscoveryStatus.COMPLETED,
+        )
+        self.assertFalse(mock_report.is_live)
+        self.assertTrue(mock_report.is_mock)
+
+    def test_string_mode_and_status_normalized_to_enum(self) -> None:
+        """Requirement: String values for mode and status are normalized to valid enums."""
+        rep = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={},
+            devices=[],
+            vulnerable_device_count=0,
+            mode="live_passive",  # type: ignore[arg-type]
+            status="failed",      # type: ignore[arg-type]
+            error_message="Connection timed out",
+        )
+        self.assertIs(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertIs(rep.status, DiscoveryStatus.FAILED)
+        self.assertEqual(rep.error_message, "Connection timed out")
+
+    def test_invalid_mode_or_status_rejected(self) -> None:
+        """Requirement: Invalid mode or status strings/types raise ValueError or TypeError."""
+        with self.assertRaises(ValueError):
+            VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                mode="active_scan",  # type: ignore[arg-type]
+            )
+
+        with self.assertRaises(TypeError):
+            VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                mode=123,  # type: ignore[arg-type]
+            )
+
+        with self.assertRaises(ValueError):
+            VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                status="unknown_status",  # type: ignore[arg-type]
+            )
+
+        with self.assertRaises(TypeError):
+            VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                status=False,  # type: ignore[arg-type]
+            )
+
+        with self.assertRaises(TypeError):
+            VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                error_message=999,  # type: ignore[arg-type]
+            )
+
+    def test_unexpected_provenance_kwargs_rejected_by_constructor(self) -> None:
+        """Requirement: Attempting to pass contradictory kwargs like is_live or is_mock raises TypeError."""
+        with self.assertRaises(TypeError):
+            VendorDiscoveryReport(
+                total_devices=0,
+                category_counts={},
+                devices=[],
+                vulnerable_device_count=0,
+                mode=DiscoveryMode.MOCK,
+                is_live=True,  # type: ignore[call-arg]
+            )
+
+    def test_serialization_preserves_existing_keys_and_adds_provenance(self) -> None:
+        """Requirement: to_dict() preserves existing fields and types while adding JSON-safe provenance."""
+        rep = VendorDiscoveryReport(
+            total_devices=0,
+            category_counts={"IP Camera / CCTV": 0},
+            devices=[],
+            vulnerable_device_count=0,
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            status=DiscoveryStatus.COMPLETED,
+            error_message=None,
+        )
+        d = rep.to_dict()
+
+        # Existing keys and types
+        self.assertEqual(d["total_devices"], 0)
+        self.assertEqual(d["category_counts"], {"IP Camera / CCTV": 0})
+        self.assertEqual(d["devices"], [])
+        self.assertEqual(d["vulnerable_device_count"], 0)
+
+        # New provenance keys and types
+        self.assertEqual(d["mode"], "live_passive")
+        self.assertEqual(d["status"], "completed")
+        self.assertIs(d["is_live"], True)
+        self.assertIs(d["is_mock"], False)
+        self.assertIsNone(d["error_message"])
+
+        # JSON serializability check
+        json_str = json.dumps(d)
+        parsed = json.loads(json_str)
+        self.assertEqual(parsed["mode"], "live_passive")
+        self.assertEqual(parsed["status"], "completed")
+        self.assertTrue(parsed["is_live"])
+        self.assertFalse(parsed["is_mock"])
+
+    def test_engine_discover_devices_attaches_correct_mode(self) -> None:
+        """Requirement: VendorManagerEngine.discover_devices attaches MOCK or LIVE_PASSIVE mode."""
+        mock_rep = VendorManagerEngine.discover_devices(use_mock=True)
+        self.assertEqual(mock_rep.mode, DiscoveryMode.MOCK)
+        self.assertEqual(mock_rep.status, DiscoveryStatus.COMPLETED)
+        self.assertTrue(mock_rep.is_mock)
+        self.assertFalse(mock_rep.is_live)
+        self.assertIsNone(mock_rep.error_message)
+
+        # Offline silent network live discovery
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            live_rep = VendorManagerEngine.discover_devices(
+                use_mock=False,
+                timeout=0.1,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+        self.assertEqual(live_rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertEqual(live_rep.status, DiscoveryStatus.COMPLETED)
+        self.assertTrue(live_rep.is_live)
+        self.assertFalse(live_rep.is_mock)
+        self.assertEqual(live_rep.total_devices, 0)
+
+
+class TestVendorDiscoveryServiceAndOperationalCorrectness(unittest.TestCase):
+    """Test suite for service and vendor-manager operational correctness (TASK-010B)."""
+
+    def setUp(self) -> None:
+        from itsa_network_os.network.mndp import build_mndp_test_packet
+        from itsa_network_os.network.onvif import build_ws_discovery_test_xml
+
+        self.mndp_pkt = build_mndp_test_packet(
+            mac="48:8F:5A:99:88:77",
+            board_name="RB5009UG+S+IN",
+            version="7.15",
+            identity="EdgeGateway",
+            ipv4="192.168.10.1",
+        )
+        self.onvif_xml = build_ws_discovery_test_xml(
+            message_type="Hello",
+            endpoint_uuid="urn:uuid:12345678-1234-5678-1234-567812345678",
+            hardware_model="IPC-HFW4431R-Z",
+            xaddr="http://192.168.10.50:80/onvif/device_service",
+        )
+
+    def test_explicit_mock_mode_produces_only_mock_fixtures_and_truthful_provenance(self) -> None:
+        """Requirement: Explicit mock mode produces only mock fixtures with mock provenance."""
+        # Using enum
+        rep1 = VendorManagerEngine.discover_devices(mode=DiscoveryMode.MOCK)
+        self.assertEqual(rep1.mode, DiscoveryMode.MOCK)
+        self.assertEqual(rep1.status, DiscoveryStatus.COMPLETED)
+        self.assertTrue(rep1.is_mock)
+        self.assertFalse(rep1.is_live)
+        self.assertEqual(rep1.total_devices, 8)
+        self.assertEqual(len(rep1.devices), 8)
+        self.assertIsNone(rep1.error_message)
+
+        # Using string
+        rep2 = VendorManagerEngine.discover_devices(mode="mock")
+        self.assertEqual(rep2.mode, DiscoveryMode.MOCK)
+        self.assertEqual(rep2.status, DiscoveryStatus.COMPLETED)
+        self.assertTrue(rep2.is_mock)
+        self.assertFalse(rep2.is_live)
+
+    def test_explicit_live_mode_produces_no_mock_fixtures(self) -> None:
+        """Requirement: Explicit live mode produces zero mock fixtures."""
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            rep = VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertEqual(rep.status, DiscoveryStatus.COMPLETED)
+        self.assertTrue(rep.is_live)
+        self.assertFalse(rep.is_mock)
+        self.assertEqual(rep.total_devices, 0)
+        self.assertEqual(rep.devices, [])
+        self.assertIsNone(rep.error_message)
+
+    def test_successful_empty_live_discovery_remains_empty_and_completed(self) -> None:
+        """Requirement: Successful live discovery on quiet network returns empty completed report."""
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            rep = VendorManagerEngine.discover_devices(
+                use_mock=False,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertEqual(rep.status, DiscoveryStatus.COMPLETED)
+        self.assertEqual(rep.devices, [])
+        self.assertEqual(rep.total_devices, 0)
+        self.assertTrue(rep.is_live)
+        self.assertFalse(rep.is_mock)
+        self.assertIsNone(rep.error_message)
+
+    def test_worker_exception_both_listeners_fail_reported_as_failed(self) -> None:
+        """Requirement: When both listeners encounter worker exceptions, status is FAILED."""
+        def failing_mndp_factory(*a, **k):
+            raise OSError(98, "Address already in use")
+
+        def failing_onvif_factory(*a, **k):
+            raise PermissionError(13, "Permission denied")
+
+        rep = VendorManagerEngine.discover_devices(
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            timeout=0.05,
+            mndp_socket_factory=failing_mndp_factory,
+            onvif_socket_factory=failing_onvif_factory,
+        )
+
+        self.assertEqual(rep.status, DiscoveryStatus.FAILED)
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertTrue(rep.is_live)
+        self.assertFalse(rep.is_mock)
+        self.assertEqual(rep.total_devices, 0)
+        self.assertEqual(rep.devices, [])
+        self.assertIsNotNone(rep.error_message)
+        self.assertIn("Both discovery listeners failed", rep.error_message or "")
+        self.assertIn("MNDP", rep.error_message or "")
+        self.assertIn("ONVIF", rep.error_message or "")
+
+    def test_one_listener_fails_and_other_succeeds_empty_reported_as_partial(self) -> None:
+        """Requirement: One listener failure with other completing empty returns PARTIAL status."""
+        def failing_mndp_factory(*a, **k):
+            raise OSError(98, "Address already in use")
+
+        sock_onvif = MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            rep = VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.05,
+                mndp_socket_factory=failing_mndp_factory,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+
+        self.assertEqual(rep.status, DiscoveryStatus.PARTIAL)
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertTrue(rep.is_live)
+        self.assertFalse(rep.is_mock)
+        self.assertEqual(rep.total_devices, 0)
+        self.assertEqual(rep.devices, [])
+        self.assertIsNotNone(rep.error_message)
+        self.assertIn("MNDP listener failed", rep.error_message or "")
+        self.assertIn("ONVIF listener completed normally", rep.error_message or "")
+
+    def test_one_listener_fails_and_other_succeeds_with_devices_reported_as_partial(self) -> None:
+        """Requirement: One listener failure preserves valid observations from the healthy listener."""
+        sock_mndp = MockDatagramSocket()
+        sock_mndp.queue_packet(self.mndp_pkt, sender_ip="192.168.10.1", sender_port=5678)
+
+        def failing_onvif_factory(*a, **k):
+            raise OSError(105, "No buffer space available")
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            rep = VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=failing_onvif_factory,
+            )
+
+        self.assertEqual(rep.status, DiscoveryStatus.PARTIAL)
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertTrue(rep.is_live)
+        self.assertFalse(rep.is_mock)
+        self.assertEqual(rep.total_devices, 1)
+        self.assertEqual(len(rep.devices), 1)
+        self.assertEqual(rep.devices[0].category, DeviceCategory.MIKROTIK)
+        self.assertIsNotNone(rep.error_message)
+        self.assertIn("ONVIF listener failed", rep.error_message or "")
+        self.assertIn("MNDP listener completed normally", rep.error_message or "")
+
+    def test_socket_binding_error_reported_truthfully(self) -> None:
+        """Requirement: Socket binding exceptions are not swallowed into quiet network."""
+        class FailingBindSocket(MockDatagramSocket):
+            def bind(self, addr):
+                raise OSError(98, "Address already in use")
+
+        sock_mndp = FailingBindSocket()
+        sock_onvif = FailingBindSocket()
+
+        rep = VendorManagerEngine.discover_devices(
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            timeout=0.05,
+            mndp_socket_factory=lambda *a, **k: sock_mndp,
+            onvif_socket_factory=lambda *a, **k: sock_onvif,
+        )
+
+        self.assertEqual(rep.status, DiscoveryStatus.FAILED)
+        self.assertEqual(rep.total_devices, 0)
+        self.assertEqual(rep.devices, [])
+        self.assertIn("Address already in use", rep.error_message or "")
+
+    def test_cancellation_reported_as_cancelled(self) -> None:
+        """Requirement: Explicit cancellation via stop_event produces CANCELLED status."""
+        stop_event = threading.Event()
+        stop_event.set()
+
+        rep = VendorManagerEngine.discover_devices(
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            stop_event=stop_event,
+        )
+
+        self.assertEqual(rep.status, DiscoveryStatus.CANCELLED)
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertEqual(rep.total_devices, 0)
+        self.assertEqual(rep.devices, [])
+        self.assertEqual(rep.error_message, "Discovery operation was cancelled")
+
+    def test_timeout_status_distinguishable(self) -> None:
+        """Requirement: Worker join timeout produces TIMED_OUT status."""
+        from unittest.mock import patch
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        # Simulate worker thread remaining alive after join timeout
+        with patch.object(threading.Thread, "is_alive", return_value=True):
+            rep = VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.01,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+
+        self.assertEqual(rep.status, DiscoveryStatus.TIMED_OUT)
+        self.assertEqual(rep.mode, DiscoveryMode.LIVE_PASSIVE)
+        self.assertEqual(rep.total_devices, 0)
+        self.assertEqual(rep.devices, [])
+        self.assertIn("timed out", rep.error_message or "")
+
+    def test_interface_constraint_error_preserves_fail_closed(self) -> None:
+        """Requirement: Interface constraint errors raise InterfaceConstraintError directly."""
+        from itsa_network_os.network.models import InterfaceConstraintError
+        from unittest.mock import patch
+
+        with patch("socket.if_nametoindex", side_effect=OSError("No such device")):
+            with self.assertRaises(InterfaceConstraintError):
+                VendorManagerEngine.discover_devices(
+                    mode=DiscoveryMode.LIVE_PASSIVE,
+                    interface="nonexistent_dev",
+                    timeout=0.05,
+                )
+
+    def test_contradictory_mode_and_legacy_flags_rejected_by_engine(self) -> None:
+        """Requirement: Contradictory mode and use_mock arguments raise ValueError."""
+        with self.assertRaises(ValueError):
+            VendorManagerEngine.discover_devices(mode=DiscoveryMode.LIVE_PASSIVE, use_mock=True)
+
+        with self.assertRaises(ValueError):
+            VendorManagerEngine.discover_devices(mode=DiscoveryMode.MOCK, use_mock=False)
+
+        with self.assertRaises(ValueError):
+            VendorManagerEngine.discover_devices(mode="invalid_mode")
+
+        with self.assertRaises(TypeError):
+            VendorManagerEngine.discover_devices(mode=999)  # type: ignore[arg-type]
+
+    def test_contradictory_mode_and_legacy_flags_rejected_by_application(self) -> None:
+        """Requirement: Application service layer rejects conflicting mode selections."""
+        app = Application()
+
+        with self.assertRaises(ValueError):
+            app.discover_vendor_devices(mode=DiscoveryMode.LIVE_PASSIVE, use_mock=True)
+
+        with self.assertRaises(ValueError):
+            app.discover_vendor_devices(mode=DiscoveryMode.MOCK, use_mock=False)
+
+        with self.assertRaises(ValueError):
+            app.discover_vendor_devices(force_live=True, use_mock=True)
+
+        with self.assertRaises(ValueError):
+            app.discover_vendor_devices(force_live=True, mode=DiscoveryMode.MOCK)
+
+        with self.assertRaises(ValueError):
+            app.discover_vendor_devices(mode="unsupported_mode")
+
+        with self.assertRaises(TypeError):
+            app.discover_vendor_devices(mode=123)  # type: ignore[arg-type]
+
+    def test_application_service_explicit_live_cannot_be_overridden_by_config(self) -> None:
+        """Requirement: config.use_mock_network cannot override explicit live discovery request."""
+        from itsa_network_os.core.config import AppConfig
+
+        mock_config = AppConfig(use_mock_network=True)
+        app = Application(config=mock_config)
+
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            # force_live=True overrides config.use_mock_network=True
+            rep_force = app.discover_vendor_devices(
+                force_live=True,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+            self.assertEqual(rep_force.mode, DiscoveryMode.LIVE_PASSIVE)
+            self.assertTrue(rep_force.is_live)
+            self.assertFalse(rep_force.is_mock)
+            self.assertEqual(rep_force.total_devices, 0)
+
+            # mode=DiscoveryMode.LIVE_PASSIVE overrides config.use_mock_network=True
+            rep_mode = app.discover_vendor_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+            self.assertEqual(rep_mode.mode, DiscoveryMode.LIVE_PASSIVE)
+            self.assertTrue(rep_mode.is_live)
+            self.assertFalse(rep_mode.is_mock)
+
+            # use_mock=False overrides config.use_mock_network=True
+            rep_nomock = app.discover_vendor_devices(
+                use_mock=False,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+            self.assertEqual(rep_nomock.mode, DiscoveryMode.LIVE_PASSIVE)
+            self.assertTrue(rep_nomock.is_live)
+
+        # Default without live request respects config.use_mock_network=True
+        rep_default = app.discover_vendor_devices()
+        self.assertEqual(rep_default.mode, DiscoveryMode.MOCK)
+        self.assertTrue(rep_default.is_mock)
+        self.assertFalse(rep_default.is_live)
+
+    def test_report_device_counts_strictly_agree_with_device_list(self) -> None:
+        """Requirement: report device counts strictly agree with actual device list."""
+        mock_rep = VendorManagerEngine.discover_devices(use_mock=True)
+        self.assertEqual(mock_rep.total_devices, len(mock_rep.devices))
+        self.assertEqual(sum(mock_rep.category_counts.values()), len(mock_rep.devices))
+
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            empty_rep = VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+        self.assertEqual(empty_rep.total_devices, len(empty_rep.devices))
+        self.assertEqual(sum(empty_rep.category_counts.values()), len(empty_rep.devices))
+
+    def test_listener_socket_cleanup_on_success_and_failure(self) -> None:
+        """Requirement: Sockets are deterministically closed on normal completion and errors."""
+        sock_mndp = MockDatagramSocket()
+        sock_onvif = MockDatagramSocket()
+
+        from unittest.mock import patch
+        with patch("select.select", side_effect=TestLiveVendorDiscovery._mock_select):
+            VendorManagerEngine.discover_devices(
+                mode=DiscoveryMode.LIVE_PASSIVE,
+                timeout=0.05,
+                mndp_socket_factory=lambda *a, **k: sock_mndp,
+                onvif_socket_factory=lambda *a, **k: sock_onvif,
+            )
+        self.assertTrue(sock_mndp.closed)
+        self.assertTrue(sock_onvif.closed)
+
+        # Now test failure during socket binding
+        class FailingSocket(MockDatagramSocket):
+            def bind(self, addr):
+                raise OSError("Simulated bind failure")
+
+        fail_mndp = FailingSocket()
+        fail_onvif = FailingSocket()
+
+        VendorManagerEngine.discover_devices(
+            mode=DiscoveryMode.LIVE_PASSIVE,
+            timeout=0.05,
+            mndp_socket_factory=lambda *a, **k: fail_mndp,
+            onvif_socket_factory=lambda *a, **k: fail_onvif,
+        )
+        self.assertTrue(fail_mndp.closed)
+        self.assertTrue(fail_onvif.closed)
 
 
 if __name__ == "__main__":

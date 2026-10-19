@@ -7,7 +7,7 @@ import socket
 import threading
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 from itsa_network_os.network.mndp import MNDPObservation, MNDPPassiveListener
 from itsa_network_os.network.models import EvidenceProtocol, EvidenceRecord, InterfaceConstraintError
@@ -120,6 +120,23 @@ class ManagedDevice:
         return data
 
 
+class DiscoveryMode(str, Enum):
+    """Discovery execution mode defining the provenance of discovered hardware intelligence."""
+
+    LIVE_PASSIVE = "live_passive"
+    MOCK = "mock"
+
+
+class DiscoveryStatus(str, Enum):
+    """Operational execution status of a discovery query."""
+
+    COMPLETED = "completed"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    TIMED_OUT = "timed_out"
+
+
 @dataclass(frozen=True)
 class VendorDiscoveryReport:
     """Comprehensive discovery and inventory report of multi-vendor network hardware."""
@@ -128,13 +145,71 @@ class VendorDiscoveryReport:
     category_counts: Dict[str, int]
     devices: List[ManagedDevice]
     vulnerable_device_count: int
+    mode: DiscoveryMode = DiscoveryMode.MOCK
+    status: DiscoveryStatus = DiscoveryStatus.COMPLETED
+    error_message: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        # Validate and normalize mode
+        if isinstance(self.mode, DiscoveryMode):
+            norm_mode = self.mode
+        elif isinstance(self.mode, str):
+            try:
+                norm_mode = DiscoveryMode(self.mode)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid discovery mode: {self.mode!r}. Must be one of {[m.value for m in DiscoveryMode]}"
+                )
+        else:
+            raise TypeError(
+                f"mode must be a DiscoveryMode or str, got {type(self.mode).__name__}"
+            )
+        object.__setattr__(self, "mode", norm_mode)
+
+        # Validate and normalize status
+        if isinstance(self.status, DiscoveryStatus):
+            norm_status = self.status
+        elif isinstance(self.status, str):
+            try:
+                norm_status = DiscoveryStatus(self.status)
+            except ValueError:
+                raise ValueError(
+                    f"Invalid discovery status: {self.status!r}. Must be one of {[s.value for s in DiscoveryStatus]}"
+                )
+        else:
+            raise TypeError(
+                f"status must be a DiscoveryStatus or str, got {type(self.status).__name__}"
+            )
+        object.__setattr__(self, "status", norm_status)
+
+        # Validate error_message
+        if self.error_message is not None and not isinstance(self.error_message, str):
+            raise TypeError(
+                f"error_message must be a string or None, got {type(self.error_message).__name__}"
+            )
+
+    @property
+    def is_live(self) -> bool:
+        """True if report results originated from live network passive discovery."""
+        return self.mode == DiscoveryMode.LIVE_PASSIVE
+
+    @property
+    def is_mock(self) -> bool:
+        """True if report results originated from simulated demonstration mock fixtures."""
+        return self.mode == DiscoveryMode.MOCK
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serialize discovery report to a JSON-compatible dictionary."""
         return {
             "total_devices": self.total_devices,
             "category_counts": self.category_counts,
             "devices": [d.to_dict() for d in self.devices],
             "vulnerable_device_count": self.vulnerable_device_count,
+            "mode": self.mode.value,
+            "status": self.status.value,
+            "is_live": self.is_live,
+            "is_mock": self.is_mock,
+            "error_message": self.error_message,
         }
 
 
@@ -466,28 +541,63 @@ class VendorManagerEngine:
     def discover_devices(
         cls,
         category_filter: Optional[DeviceCategory] = None,
-        use_mock: bool = True,
+        use_mock: Optional[bool] = None,
         timeout: float = 5.0,
         interface: Optional[str] = None,
         scope_guard: Optional[Any] = None,
         mndp_socket_factory: Optional[Any] = None,
         onvif_socket_factory: Optional[Any] = None,
+        mode: Optional[DiscoveryMode | str] = None,
+        stop_event: Optional[threading.Event] = None,
     ) -> VendorDiscoveryReport:
         """Discover and query multi-vendor network hardware and IP surveillance devices.
 
-        When use_mock=True, returns deterministic simulated hardware profiles.
-        When use_mock=False, listens passively for broadcast/multicast announcements
-        via MNDP and ONVIF WS-Discovery. Never returns simulated devices in live mode.
+        When mode=DiscoveryMode.MOCK or use_mock=True, returns deterministic simulated hardware profiles.
+        When mode=DiscoveryMode.LIVE_PASSIVE or use_mock=False, listens passively for broadcast/multicast
+        announcements via MNDP and ONVIF WS-Discovery. Never returns simulated devices in live mode.
         """
-        if use_mock:
-            devices = cls.get_mock_devices()
+        if mode is not None:
+            if isinstance(mode, DiscoveryMode):
+                norm_mode = mode
+            elif isinstance(mode, str):
+                try:
+                    norm_mode = DiscoveryMode(mode)
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid discovery mode: {mode!r}. Must be one of {[m.value for m in DiscoveryMode]}"
+                    )
+            else:
+                raise TypeError(
+                    f"mode must be a DiscoveryMode or str, got {type(mode).__name__}"
+                )
+
+            if use_mock is not None:
+                if norm_mode == DiscoveryMode.LIVE_PASSIVE and use_mock is True:
+                    raise ValueError(
+                        "Conflicting discovery parameters: mode='live_passive' conflicts with use_mock=True"
+                    )
+                if norm_mode == DiscoveryMode.MOCK and use_mock is False:
+                    raise ValueError(
+                        "Conflicting discovery parameters: mode='mock' conflicts with use_mock=False"
+                    )
+        elif use_mock is not None:
+            norm_mode = DiscoveryMode.MOCK if use_mock else DiscoveryMode.LIVE_PASSIVE
         else:
-            devices = cls._discover_live(
+            # Preserves legacy caller behavior when called with no mode or use_mock specified
+            norm_mode = DiscoveryMode.MOCK
+
+        if norm_mode == DiscoveryMode.MOCK:
+            devices = cls.get_mock_devices()
+            status = DiscoveryStatus.COMPLETED
+            error_message = None
+        else:
+            devices, status, error_message = cls._discover_live(
                 timeout=timeout,
                 interface=interface,
                 scope_guard=scope_guard,
                 mndp_socket_factory=mndp_socket_factory,
                 onvif_socket_factory=onvif_socket_factory,
+                stop_event=stop_event,
             )
 
         if category_filter:
@@ -510,6 +620,9 @@ class VendorManagerEngine:
             category_counts=category_counts,
             devices=devices,
             vulnerable_device_count=vulnerable_count,
+            mode=norm_mode,
+            status=status,
+            error_message=error_message,
         )
 
     @classmethod
@@ -520,7 +633,8 @@ class VendorManagerEngine:
         scope_guard: Optional[Any] = None,
         mndp_socket_factory: Optional[Any] = None,
         onvif_socket_factory: Optional[Any] = None,
-    ) -> List[ManagedDevice]:
+        stop_event: Optional[threading.Event] = None,
+    ) -> Tuple[List[ManagedDevice], DiscoveryStatus, Optional[str]]:
         """Perform passive, read-only listening for MNDP and ONVIF broadcast announcements.
 
         Strict security invariants:
@@ -530,8 +644,16 @@ class VendorManagerEngine:
         - Applies ScopeGuard authorization policy to sender addresses when configured.
         - Deduplicates MNDP by verified MAC and ONVIF by verified endpoint UUID.
         - Bounded inventory (max 256 devices).
+        - Handles worker lifecycle, socket cleanup, timeout, cancellation, and partial failures.
         """
         logger = logging.getLogger("itsa_network_os.vendor_manager")
+
+        if stop_event is not None and stop_event.is_set():
+            return (
+                [],
+                DiscoveryStatus.CANCELLED,
+                "Discovery operation was cancelled",
+            )
 
         # Check interface with scope_guard if configured
         if (
@@ -563,36 +685,39 @@ class VendorManagerEngine:
 
         mndp_observations: List[MNDPObservation] = []
         onvif_observations: List[ONVIFObservation] = []
-        listener_errors: List[Exception] = []
-        stop_event = threading.Event()
+        mndp_error: Optional[Exception] = None
+        onvif_error: Optional[Exception] = None
+        effective_stop_event = stop_event if stop_event is not None else threading.Event()
 
         def listen_mndp() -> None:
+            nonlocal mndp_error
             try:
                 obs = mndp_listener.listen(
                     timeout=timeout,
                     interface=interface,
-                    stop_event=stop_event,
+                    stop_event=effective_stop_event,
                     socket_factory=mndp_socket_factory,
                 )
                 mndp_observations.extend(obs)
             except Exception as exc:
-                listener_errors.append(exc)
+                mndp_error = exc
                 if isinstance(exc, InterfaceConstraintError):
-                    stop_event.set()
+                    effective_stop_event.set()
 
         def listen_onvif() -> None:
+            nonlocal onvif_error
             try:
                 obs = onvif_listener.listen(
                     timeout=timeout,
                     interface=interface,
-                    stop_event=stop_event,
+                    stop_event=effective_stop_event,
                     socket_factory=onvif_socket_factory,
                 )
                 onvif_observations.extend(obs)
             except Exception as exc:
-                listener_errors.append(exc)
+                onvif_error = exc
                 if isinstance(exc, InterfaceConstraintError):
-                    stop_event.set()
+                    effective_stop_event.set()
 
         t_mndp = threading.Thread(
             target=listen_mndp, name="MNDP-Passive-Worker", daemon=True
@@ -608,10 +733,53 @@ class VendorManagerEngine:
         t_mndp.join(timeout=join_timeout)
         t_onvif.join(timeout=join_timeout)
 
+        timed_out = False
+        if t_mndp.is_alive() or t_onvif.is_alive():
+            effective_stop_event.set()
+            t_mndp.join(timeout=0.2)
+            t_onvif.join(timeout=0.2)
+            if t_mndp.is_alive() or t_onvif.is_alive():
+                timed_out = True
+
         # Fail closed immediately if any interface constraint error occurred
-        for err in listener_errors:
-            if isinstance(err, InterfaceConstraintError):
-                raise err
+        if isinstance(mndp_error, InterfaceConstraintError):
+            raise mndp_error
+        if isinstance(onvif_error, InterfaceConstraintError):
+            raise onvif_error
+
+        if stop_event is not None and stop_event.is_set():
+            return (
+                [],
+                DiscoveryStatus.CANCELLED,
+                "Discovery operation was cancelled",
+            )
+
+        if timed_out:
+            return (
+                [],
+                DiscoveryStatus.TIMED_OUT,
+                "Discovery listener workers timed out without normal completion",
+            )
+
+        if mndp_error is not None and onvif_error is not None:
+            return (
+                [],
+                DiscoveryStatus.FAILED,
+                f"Both discovery listeners failed: MNDP ({type(mndp_error).__name__}: {mndp_error}); ONVIF ({type(onvif_error).__name__}: {onvif_error})",
+            )
+
+        status: DiscoveryStatus
+        error_msg: Optional[str] = None
+
+        if mndp_error is not None:
+            status = DiscoveryStatus.PARTIAL
+            error_msg = f"MNDP listener failed ({type(mndp_error).__name__}: {mndp_error}); ONVIF listener completed normally"
+        elif onvif_error is not None:
+            status = DiscoveryStatus.PARTIAL
+            error_msg = f"ONVIF listener failed ({type(onvif_error).__name__}: {onvif_error}); MNDP listener completed normally"
+        else:
+            status = DiscoveryStatus.COMPLETED
+            error_msg = None
 
         discovered_devices: Dict[str, ManagedDevice] = {}
         max_inventory_size = 256
@@ -913,5 +1081,5 @@ class VendorManagerEngine:
                     evidence=claims,
                 )
 
-        return list(discovered_devices.values())
+        return (list(discovered_devices.values()), status, error_msg)
 
