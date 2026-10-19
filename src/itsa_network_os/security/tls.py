@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import ipaddress
 import os
 import socket
 import ssl
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from itsa_network_os.network.scope import ScopeGuard
 
 
 class CipherSecurityLevel(str, Enum):
@@ -69,29 +73,63 @@ class TLSInspectorEngine:
     """Non-destructive cryptographic inspection engine for TLS endpoints."""
 
     @classmethod
-    def inspect(cls, host: str, port: int = 443, use_mock: bool = True) -> TLSInspectionReport:
+    def inspect(
+        cls,
+        host: str,
+        port: int = 443,
+        use_mock: bool = True,
+        interface: Optional[str] = None,
+        scope_guard: Optional[ScopeGuard] = None,
+    ) -> TLSInspectionReport:
         """Inspect TLS endpoint certificates, cipher suites, and protocol security."""
         if use_mock:
             return cls._get_mock_report(host, port)
 
+        from itsa_network_os.network.scope import ScopeGuard, ScopeViolationError
+
+        # In live mode, require authorized ScopeGuard compliance
+        guard = scope_guard or ScopeGuard()
+        target_ip = guard.resolve_and_verify_target(host, interface=interface, check_unicast=True)
+
         try:
-            return cls._inspect_live(host, port)
+            return cls._inspect_live(host, port, target_ip=target_ip, interface=interface)
+        except ScopeViolationError:
+            raise
         except Exception as exc:
             # Graceful fallback to mock on network isolation or connection error
             return cls._get_mock_report(host, port, error_notice=str(exc))
 
     @classmethod
-    def _inspect_live(cls, host: str, port: int) -> TLSInspectionReport:
+    def _inspect_live(
+        cls,
+        host: str,
+        port: int,
+        target_ip: str,
+        interface: Optional[str] = None,
+    ) -> TLSInspectionReport:
         """Perform real non-destructive TLS client handshake (read-only)."""
+        from itsa_network_os.network.scope import ScopeViolationError, get_interface_source_ip
+
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE  # Read-only certificate inspection
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        target_obj = ipaddress.ip_address(target_ip)
+        af = socket.AF_INET if isinstance(target_obj, ipaddress.IPv4Address) else socket.AF_INET6
+        sock = socket.socket(af, socket.SOCK_STREAM)
         sock.settimeout(3.5)
 
+        if interface is not None:
+            source_ip = get_interface_source_ip(interface, target_ip)
+            if source_ip is None:
+                sock.close()
+                raise ScopeViolationError(
+                    f"Cannot guarantee binding to authorized interface '{interface}': no compatible local IP address found"
+                )
+            sock.bind((source_ip, 0))
+
         with ctx.wrap_socket(sock, server_hostname=host) as ssock:
-            ssock.connect((host, port))
+            ssock.connect((target_ip, port))
             protocol = ssock.version() or "TLSv1.2"
             cipher_info = ssock.cipher()
             cipher_name = cipher_info[0] if cipher_info else "UNKNOWN"

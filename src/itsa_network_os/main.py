@@ -221,6 +221,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         parser.print_help()
         return 0
 
+    # Validate scope arguments
+    if args.scope_interface and not args.scope:
+        print("Error: --scope-interface requires --scope to be specified.", file=sys.stderr)
+        return 1
+
     try:
         # Configure authorized network scope enclosure if specified
         if args.scope:
@@ -256,7 +261,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         if args.dns:
-            dns_result = app.diagnose_dns(args.dns, force_live=args.live)
+            dns_result = app.diagnose_dns(
+                args.dns,
+                force_live=args.live,
+                interface=args.scope_interface,
+            )
             if args.json:
                 print(ReportExporter.to_json(dns_result.to_dict()))
             else:
@@ -270,6 +279,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 port=args.port,
                 count=args.count,
                 force_live=args.live,
+                interface=args.scope_interface,
             )
             if args.json:
                 print(ReportExporter.to_json(latency_result.to_dict()))
@@ -349,7 +359,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 0
 
         if args.tls:
-            tls_report = app.inspect_tls(args.tls, port=args.port, force_live=args.live)
+            tls_report = app.inspect_tls(
+                args.tls,
+                port=args.port,
+                force_live=args.live,
+                interface=args.scope_interface,
+            )
             if args.json:
                 print(ReportExporter.to_json(tls_report.to_dict()))
             else:
@@ -376,7 +391,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 TerminalFormatter.print_vendor_discovery(vendor_report)
             return 0
 
-    except (SecurityValidationError, SubnetCalculationError) as exc:
+    except (SecurityValidationError, SubnetCalculationError, ScopeViolationError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:

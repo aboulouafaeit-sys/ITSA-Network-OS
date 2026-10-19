@@ -17,6 +17,8 @@
 - **ADR-006:** Local SQLite Storage Without External Telemetry
 - **ADR-007:** Evidence Attribution Over Unverified Device Inferences
 - **ADR-008:** Explicit Distinction Between Linux Kernel Scope and RFC Address Classification
+- **ADR-009:** Local Gateway and DNS Association Semantics and Provenance
+- **ADR-010:** Fail-Closed Network Scope Enclosure and Runtime Bound Enforcement
 
 ---
 
@@ -96,5 +98,20 @@
      - Case C: Non-routed interfaces (e.g. `lo` or unrouted links) receive empty DNS server lists.
 - **Rationale:** Eliminates misleading associations while providing complete diagnostic context. The interface object clearly distinguishes between verified per-link nameservers and global system resolvers.
 - **Consequences:** `NetworkInterface` safely supports dual-stack default gateways and multi-nameserver resolver lists without breaking backwards compatibility or constructor signatures.
+
+---
+
+### ADR-010: Fail-Closed Network Scope Enclosure and Runtime Bound Enforcement
+- **Context:** Active network diagnostics (DNS query, TCP latency, TLS handshake, packet probes) risk transmitting packets to out-of-scope, public, or unintended network destinations if boundaries default to open or if hostname resolution enables DNS rebinding. Under security audit AUDIT-SEC-TASK008, unconfigured ScopeGuard was found to default to permit-all, interface restrictions could be bypassed via omitted interface attribution, engines could be invoked directly without passing ScopeGuard, and supernets/broadcast addresses were not prohibited.
+- **Decision:** Enforce a strict fail-closed (default-deny) runtime network boundary across all active operations:
+  1. *Fail-Closed Default:* An unconfigured `ScopeGuard` or empty `ScopeEnclosure` strictly denies all active network operations and raises `ScopeViolationError`. `clear()` resets the guard to an empty, default-deny enclosure. Passive local inspection and offline mock modes remain fully functional without requiring configured scope.
+  2. *Mandatory Interface Attribution:* When scope restricts operations to specific interfaces, active operations without interface attribution (`interface=None`) or on mismatched interfaces fail closed with `ScopeViolationError`.
+  3. *Unprivileged Interface Binding:* For unprivileged Linux execution (ADR-005), socket binding to the authorized interface is achieved via `source_address=(interface_source_ip, 0)` resolved from local interface configuration matching the target address family. If no compatible IP exists, the operation fails closed.
+  4. *Engine-Level Gating & Bypass Prevention:* Active engines (`LatencyTester`, `TLSInspectorEngine`, `DNSDiagnostics`) mandate an authorized `ScopeGuard` in live mode and reject unconfigured calls prior to socket creation or DNS resolution.
+  5. *Resolution-to-Connection Integrity:* Target hostnames are resolved once and all resolved IPs verified against the authorized enclosure. Sockets connect directly to the verified IP, preventing DNS rebinding attacks while preserving TLS SNI and certificate validation.
+  6. *Supernet & Unicast Target Restriction:* Broad prefixes (IPv4 `< 8`, IPv6 `< 7`, and `== 0`) are prohibited without explicit `allow_global_internet=True`. Subnet network (.0) and broadcast (.255) addresses for prefixes $\le 30$ are ineligible for active unicast connections, while RFC 3021 `/31` point-to-point links and `/32` host routes remain permitted.
+- **Rationale:** Guarantees that active diagnostic probing cannot escape user-authorized administrative boundaries, satisfying REQ-DISC-002, REQ-SEC-004, and the Safe Automation Hierarchy in SECURITY.md.
+- **Consequences:** All live CLI and API operations require an explicit `--scope` enclosure. CLI flags `--scope-interface` without `--scope` are rejected with exit code 1.
+
 
 

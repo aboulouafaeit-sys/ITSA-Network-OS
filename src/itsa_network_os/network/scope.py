@@ -2,6 +2,7 @@
 
 Enforces strict CIDR boundaries preventing active diagnostic queries or packet
 transmission outside explicitly user-approved target networks and interfaces (REQ-DISC-002).
+Implements a strict fail-closed (default-deny) policy for all active network operations.
 """
 
 from __future__ import annotations
@@ -26,7 +27,8 @@ class ScopeEnclosure:
         cidrs: Tuple of validated IPv4/IPv6 CIDR networks.
         interfaces: Tuple of validated local network interfaces allowed for discovery.
         allow_loopback: If True (default), permits 127.0.0.1 and ::1 for local diagnostics.
-        allow_global_internet: If False (default), prohibits overly broad 0.0.0.0/0 or ::/0.
+        allow_global_internet: If False (default), prohibits overly broad prefixes
+            (IPv4 prefixlen < 8, IPv6 prefixlen < 7, and prefixlen == 0).
     """
 
     cidrs: Tuple[Union[ipaddress.IPv4Network, ipaddress.IPv6Network], ...] = ()
@@ -42,10 +44,19 @@ class ScopeEnclosure:
                 raise SecurityValidationError(
                     f"CIDR elements must be IPv4Network or IPv6Network, got {type(net).__name__}"
                 )
-            if net.prefixlen == 0 and not self.allow_global_internet:
-                raise SecurityValidationError(
-                    f"Overly broad network scope '{net}' is prohibited without explicit allow_global_internet=True"
-                )
+            if not self.allow_global_internet:
+                if net.prefixlen == 0:
+                    raise SecurityValidationError(
+                        f"Overly broad network scope '{net}' (prefixlen 0) is prohibited without explicit allow_global_internet=True"
+                    )
+                if isinstance(net, ipaddress.IPv4Network) and net.prefixlen < 8:
+                    raise SecurityValidationError(
+                        f"Overly broad IPv4 network scope '{net}' (prefixlen < 8) is prohibited without explicit allow_global_internet=True"
+                    )
+                if isinstance(net, ipaddress.IPv6Network) and net.prefixlen < 7:
+                    raise SecurityValidationError(
+                        f"Overly broad IPv6 network scope '{net}' (prefixlen < 7) is prohibited without explicit allow_global_internet=True"
+                    )
             validated_cidrs.append(net)
         object.__setattr__(self, "cidrs", tuple(validated_cidrs))
 
@@ -110,8 +121,11 @@ class ScopeEnclosure:
         resolver: Optional[Callable[[str], List[str]]] = None,
     ) -> bool:
         """Evaluate if target IP/host and interface fall strictly within authorized boundaries."""
-        # 1. Check interface constraint if interface restrictions exist
-        if self.interfaces and interface is not None:
+        # 1. Mandatory interface constraint check
+        if self.interfaces:
+            if interface is None:
+                # Missing interface attribution fails closed when interfaces are restricted
+                return False
             clean_iface = str(interface).strip()
             if clean_iface not in self.interfaces:
                 return False
@@ -132,7 +146,10 @@ class ScopeEnclosure:
 
                 # Resolve hostname
                 if resolver is not None:
-                    resolved_ips = resolver(clean_target)
+                    try:
+                        resolved_ips = resolver(clean_target)
+                    except Exception:
+                        return False
                 else:
                     try:
                         addrinfo = socket.getaddrinfo(clean_target, None)
@@ -150,7 +167,16 @@ class ScopeEnclosure:
         if self.allow_loopback and ip_obj.is_loopback:
             return True
 
-        # 4. Check CIDR inclusion
+        # 4. Check IPv4-mapped IPv6 address (e.g. ::ffff:192.168.1.1)
+        if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped:
+            mapped_v4 = ip_obj.ipv4_mapped
+            if self.allow_loopback and mapped_v4.is_loopback:
+                return True
+            for cidr in self.cidrs:
+                if isinstance(cidr, ipaddress.IPv4Network) and mapped_v4 in cidr:
+                    return True
+
+        # 5. Check CIDR inclusion
         for cidr in self.cidrs:
             if ip_obj in cidr:
                 return True
@@ -165,7 +191,12 @@ class ScopeEnclosure:
         resolver: Optional[Callable[[str], List[str]]] = None,
     ) -> None:
         """Verify target authorization, raising ScopeViolationError if unauthorized."""
-        if self.interfaces and interface is not None:
+        if self.interfaces:
+            if interface is None:
+                raise ScopeViolationError(
+                    f"Target '{target}' requested without interface attribution, but scope restricts "
+                    f"operations to interfaces: {list(self.interfaces)}"
+                )
             clean_iface = str(interface).strip()
             if clean_iface not in self.interfaces:
                 raise ScopeViolationError(
@@ -176,6 +207,90 @@ class ScopeEnclosure:
             raise ScopeViolationError(
                 f"Target '{target}' is outside user-authorized network scope (CIDRs: {[str(c) for c in self.cidrs]})"
             )
+
+    def is_active_unicast_target(
+        self, target: Union[str, ipaddress.IPv4Address, ipaddress.IPv6Address]
+    ) -> bool:
+        """Verify if target is a valid unicast host (excluding IPv4 network/broadcast addresses for prefixes <= 30).
+
+        RFC 3021 /31 point-to-point subnets and /32 host routes permit all addresses as valid endpoints.
+        """
+        if isinstance(target, (ipaddress.IPv4Address, ipaddress.IPv6Address)):
+            ip_obj = target
+        else:
+            clean = str(target).strip()
+            try:
+                ip_obj = ipaddress.ip_address(clean)
+            except ValueError:
+                return True
+
+        if isinstance(ip_obj, ipaddress.IPv4Address):
+            for cidr in self.cidrs:
+                if isinstance(cidr, ipaddress.IPv4Network) and ip_obj in cidr:
+                    if cidr.prefixlen <= 30:
+                        if ip_obj == cidr.network_address or ip_obj == cidr.broadcast_address:
+                            return False
+        return True
+
+    def resolve_and_verify(
+        self,
+        target: str,
+        interface: Optional[str] = None,
+        resolver: Optional[Callable[[str], List[str]]] = None,
+        check_unicast: bool = False,
+    ) -> str:
+        """Resolve target and verify ALL resolved IPs are in scope.
+
+        Returns the verified IP string to use for subsequent socket connection,
+        guaranteeing no DNS rebinding or re-resolution mismatch occurs.
+        """
+        clean_target = str(target).strip()
+        if not clean_target:
+            raise ScopeViolationError("Target address cannot be empty")
+
+        # Check if target is already an IP literal
+        try:
+            ip_obj = ipaddress.ip_address(clean_target)
+            self.assert_authorized(ip_obj, interface=interface)
+            if check_unicast and not self.is_active_unicast_target(ip_obj):
+                raise ScopeViolationError(
+                    f"Target IP '{clean_target}' is a subnet network or broadcast address and ineligible for active unicast connections"
+                )
+            return clean_target
+        except ValueError:
+            pass
+
+        # Target is a candidate hostname
+        if clean_target.lower() in ("localhost", "localhost.localdomain"):
+            if not self.allow_loopback:
+                raise ScopeViolationError(f"Target '{clean_target}' resolves to loopback which is disabled by scope policy")
+            return "127.0.0.1"
+
+        if resolver is not None:
+            try:
+                resolved_ips = resolver(clean_target)
+            except Exception as exc:
+                raise ScopeViolationError(f"Failed to resolve target hostname '{clean_target}': {exc}") from exc
+        else:
+            try:
+                addrinfo = socket.getaddrinfo(clean_target, None)
+                resolved_ips = list({item[4][0] for item in addrinfo})
+            except (socket.gaierror, OSError) as exc:
+                raise ScopeViolationError(f"Failed to resolve target hostname '{clean_target}': {exc}") from exc
+
+        if not resolved_ips:
+            raise ScopeViolationError(f"Target hostname '{clean_target}' resolved to 0 addresses")
+
+        # Every resolved IP must be authorized
+        for r_ip in resolved_ips:
+            self.assert_authorized(r_ip, interface=interface)
+            if check_unicast and not self.is_active_unicast_target(r_ip):
+                raise ScopeViolationError(
+                    f"Target hostname '{clean_target}' resolved to ineligible network/broadcast IP '{r_ip}'"
+                )
+
+        # Return the first validated IP for deterministic socket connection
+        return resolved_ips[0]
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize ScopeEnclosure to dictionary."""
@@ -198,33 +313,39 @@ class ScopeEnclosure:
 
 
 class ScopeGuard:
-    """Runtime boundary enforcement gatekeeper for active diagnostics and network queries."""
+    """Runtime boundary enforcement gatekeeper for active diagnostics and network queries.
 
-    def __init__(self, enclosure: Optional[ScopeEnclosure] = None, active: bool = True) -> None:
+    Implements a strict fail-closed (default-deny) policy. If unconfigured or cleared,
+    active network operations are strictly rejected.
+    """
+
+    def __init__(self, enclosure: Optional[ScopeEnclosure] = None) -> None:
         self._enclosure = enclosure
-        self._active = active
 
     @property
     def enclosure(self) -> Optional[ScopeEnclosure]:
-        """Active ScopeEnclosure, or None if unconstrained."""
+        """Active ScopeEnclosure, or None if unconfigured."""
         return self._enclosure
 
     @property
+    def is_configured(self) -> bool:
+        """Return True if an authorized scope enclosure has been configured."""
+        return self._enclosure is not None and bool(self._enclosure.cidrs or self._enclosure.interfaces)
+
+    @property
     def is_active(self) -> bool:
-        """Return True if scope enforcement is currently active."""
-        return self._active and self._enclosure is not None
+        """Return True if an authorized scope enclosure has been configured."""
+        return self.is_configured
 
     def set_enclosure(self, enclosure: ScopeEnclosure) -> None:
         """Set or update the active authorized scope enclosure."""
         if not isinstance(enclosure, ScopeEnclosure):
             raise TypeError(f"enclosure must be a ScopeEnclosure, got {type(enclosure).__name__}")
         self._enclosure = enclosure
-        self._active = True
 
     def clear(self) -> None:
-        """Clear the active scope enclosure, resetting to unconstrained."""
-        self._enclosure = None
-        self._active = False
+        """Clear active scope enclosure, resetting to safe default-deny state."""
+        self._enclosure = ScopeEnclosure(cidrs=(), interfaces=(), allow_loopback=False)
 
     def is_authorized(
         self,
@@ -232,9 +353,12 @@ class ScopeGuard:
         interface: Optional[str] = None,
         resolver: Optional[Callable[[str], List[str]]] = None,
     ) -> bool:
-        """Return True if target is authorized under current active enclosure."""
-        if not self.is_active or self._enclosure is None:
-            return True
+        """Return True if target is authorized under current active enclosure.
+
+        Fails closed (returns False) when unconfigured.
+        """
+        if self._enclosure is None:
+            return False
         return self._enclosure.is_authorized(target, interface=interface, resolver=resolver)
 
     def assert_authorized(
@@ -243,7 +367,59 @@ class ScopeGuard:
         interface: Optional[str] = None,
         resolver: Optional[Callable[[str], List[str]]] = None,
     ) -> None:
-        """Raise ScopeViolationError if target is unauthorized under current active enclosure."""
-        if not self.is_active or self._enclosure is None:
-            return
+        """Raise ScopeViolationError if target is unauthorized.
+
+        Fails closed (raises ScopeViolationError) when unconfigured.
+        """
+        if self._enclosure is None:
+            raise ScopeViolationError(
+                f"No authorized network scope has been configured; active query targeting '{target}' "
+                "is denied by default-deny security policy (REQ-DISC-002)"
+            )
         self._enclosure.assert_authorized(target, interface=interface, resolver=resolver)
+
+    def resolve_and_verify_target(
+        self,
+        target: str,
+        interface: Optional[str] = None,
+        resolver: Optional[Callable[[str], List[str]]] = None,
+        check_unicast: bool = True,
+    ) -> str:
+        """Resolve target and verify compliance, returning validated IP for connection.
+
+        Fails closed when unconfigured.
+        """
+        if self._enclosure is None:
+            raise ScopeViolationError(
+                f"No authorized network scope has been configured; active query targeting '{target}' "
+                "is denied by default-deny security policy (REQ-DISC-002)"
+            )
+        return self._enclosure.resolve_and_verify(
+            target,
+            interface=interface,
+            resolver=resolver,
+            check_unicast=check_unicast,
+        )
+
+
+def get_interface_source_ip(interface_name: str, target_ip: str) -> Optional[str]:
+    """Find local IP address assigned to interface matching the target address family."""
+    from itsa_network_os.network.inspector import HostNetworkProvider
+
+    try:
+        target_obj = ipaddress.ip_address(target_ip)
+        target_family = "IPv4" if isinstance(target_obj, ipaddress.IPv4Address) else "IPv6"
+    except ValueError:
+        target_family = "IPv4"
+
+    try:
+        provider = HostNetworkProvider()
+        interfaces = provider.get_interfaces()
+        for iface in interfaces:
+            if iface.name == interface_name:
+                for addr in iface.addresses:
+                    if addr.family == target_family:
+                        return addr.address
+    except Exception:
+        pass
+    return None

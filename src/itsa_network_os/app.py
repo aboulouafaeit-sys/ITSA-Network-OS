@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 from typing import Iterable, List, Optional, Union
 
@@ -108,11 +109,30 @@ class Application:
         inspector = NetworkInspector(use_mock=use_mock)
         return inspector.list_interfaces()
 
-    def diagnose_dns(self, host: str, force_live: bool = False) -> DNSDiagnosticResult:
+    def diagnose_dns(
+        self, host: str, force_live: bool = False, interface: Optional[str] = None
+    ) -> DNSDiagnosticResult:
         """Run safe DNS diagnostics for a target host."""
         use_mock = self.config.use_mock_network and not force_live
+        if interface is None and self.scope_guard.enclosure and len(self.scope_guard.enclosure.interfaces) == 1:
+            interface = self.scope_guard.enclosure.interfaces[0]
+
+        if not use_mock:
+            self.scope_guard.assert_authorized(host, interface=interface)
+        elif self.scope_guard.is_configured:
+            try:
+                ipaddress.ip_address(host.strip())
+                self.scope_guard.assert_authorized(host.strip(), interface=interface)
+            except ValueError:
+                pass
+
         self.logger.info("Running DNS diagnostics for '%s' (mock=%s)", host, use_mock)
-        result = DNSDiagnostics.query(host, use_mock=use_mock)
+        result = DNSDiagnostics.query(
+            host,
+            use_mock=use_mock,
+            interface=interface,
+            scope_guard=self.scope_guard if not use_mock else None,
+        )
 
         try:
             records_json = json.dumps([r.to_dict() for r in result.records])
@@ -128,13 +148,32 @@ class Application:
         return result
 
     def benchmark_latency(
-        self, host: str, port: int = 443, count: int = 4, force_live: bool = False
+        self,
+        host: str,
+        port: int = 443,
+        count: int = 4,
+        force_live: bool = False,
+        interface: Optional[str] = None,
     ) -> LatencyBenchmarkResult:
         """Run safe non-root latency benchmark."""
-        self.scope_guard.assert_authorized(host)
         use_mock = self.config.use_mock_network and not force_live
+        if interface is None and self.scope_guard.enclosure and len(self.scope_guard.enclosure.interfaces) == 1:
+            interface = self.scope_guard.enclosure.interfaces[0]
+
+        if not use_mock:
+            self.scope_guard.assert_authorized(host, interface=interface)
+        elif self.scope_guard.is_configured:
+            self.scope_guard.assert_authorized(host, interface=interface)
+
         self.logger.info("Benchmarking latency to %s:%d (count=%d, mock=%s)", host, port, count, use_mock)
-        result = LatencyTester.benchmark(host, port=port, count=count, use_mock=use_mock)
+        result = LatencyTester.benchmark(
+            host,
+            port=port,
+            count=count,
+            use_mock=use_mock,
+            interface=interface,
+            scope_guard=self.scope_guard if not use_mock else None,
+        )
 
         try:
             self.database.record_latency_benchmark(
@@ -197,15 +236,33 @@ class Application:
         self.logger.debug("Sampled traffic flow for %d network adapters", len(rates))
         return rates
 
-    def inspect_tls(self, host: str, port: int = 443, force_live: bool = False) -> TLSInspectionReport:
+    def inspect_tls(
+        self,
+        host: str,
+        port: int = 443,
+        force_live: bool = False,
+        interface: Optional[str] = None,
+    ) -> TLSInspectionReport:
         """Inspect TLS endpoint certificates, cipher suites, and cryptographic integrity."""
         sanitized_host = InputValidator.validate_hostname(host)
         sanitized_port = InputValidator.validate_port(port)
-        self.scope_guard.assert_authorized(sanitized_host)
-
         use_mock = self.config.use_mock_network and not force_live
+        if interface is None and self.scope_guard.enclosure and len(self.scope_guard.enclosure.interfaces) == 1:
+            interface = self.scope_guard.enclosure.interfaces[0]
+
+        if not use_mock:
+            self.scope_guard.assert_authorized(sanitized_host, interface=interface)
+        elif self.scope_guard.is_configured:
+            self.scope_guard.assert_authorized(sanitized_host, interface=interface)
+
         self.logger.info("Executing TLS inspection for %s:%d (mock=%s)", sanitized_host, sanitized_port, use_mock)
-        return TLSInspectorEngine.inspect(host=sanitized_host, port=sanitized_port, use_mock=use_mock)
+        return TLSInspectorEngine.inspect(
+            host=sanitized_host,
+            port=sanitized_port,
+            use_mock=use_mock,
+            interface=interface,
+            scope_guard=self.scope_guard if not use_mock else None,
+        )
 
     def simulate_spf(
         self, source: str = "R1", failed_link: Optional[str] = None

@@ -47,7 +47,7 @@ This roadmap outlines the systematic development of ITSA Network OS from its mod
 | Task ID | Task Description | Dependencies | Status | Acceptance Criteria |
 |---|---|---|---|---|
 | **TASK-007** | Evidence Data Model & Confidence Scoring | TASK-003 | `COMPLETED` | Implement `EvidenceRecord` attaching source protocol, timestamp, confidence (0.0-1.0), and `is_verified_fact` flag. |
-| **TASK-008** | Authorized Network Scope Enclosure | TASK-007 | `COMPLETED` | Enforce CIDR boundaries preventing active queries outside user-approved target networks. |
+| **TASK-008** | Authorized Network Scope Enclosure | TASK-007 | `COMPLETED` | Enforce fail-closed CIDR boundaries (default-deny, mandatory interface attribution, rebinding prevention, supernet rejection) preventing active queries outside user-approved networks (ADR-010). |
 | **TASK-009** | Passive MNDP & ONVIF Broadcast Listeners | TASK-007 | `PLANNED` | Implement real unprivileged UDP broadcast listeners for MikroTik MNDP (UDP 5678) and ONVIF WS-Discovery (UDP 3702). |
 | **TASK-010** | Elimination of Silent Mock Fallback | TASK-009 | `PLANNED` | Clearly indicate in UI/CLI when live discovery returns 0 results vs. simulated mock fixtures. |
 

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from itsa_network_os.network.models import DNSServerInfo
+from itsa_network_os.network.scope import ScopeGuard, ScopeViolationError
 
 
 @dataclass(frozen=True)
@@ -212,13 +213,46 @@ class DNSDiagnostics:
         return {}
 
     @classmethod
-    def query(cls, host: str, timeout: float = 3.0, use_mock: bool = False) -> DNSDiagnosticResult:
+    def query(
+        cls,
+        host: str,
+        timeout: float = 3.0,
+        use_mock: bool = False,
+        interface: Optional[str] = None,
+        scope_guard: Optional[ScopeGuard] = None,
+    ) -> DNSDiagnosticResult:
         """Resolve host addresses safely and measure response latency."""
         host_clean = host.strip()
         system_resolvers = cls.get_system_resolvers()
 
         if use_mock:
             return cls._mock_query(host_clean, system_resolvers)
+
+        # In live mode, require authorized ScopeGuard compliance
+        guard = scope_guard or ScopeGuard()
+
+        # Enforce that all active system resolvers used for query are authorized
+        for resolver in system_resolvers:
+            resolver_addr = resolver.address if hasattr(resolver, "address") else str(resolver)
+            if resolver_addr == "System Default Resolver":
+                continue
+            try:
+                guard.assert_authorized(resolver_addr, interface=interface)
+            except ScopeViolationError as exc:
+                raise ScopeViolationError(
+                    f"DNS resolver '{resolver_addr}' is outside authorized network scope: {exc}"
+                ) from exc
+
+        # If target host is an IP, enforce scope authorization
+        is_ip = False
+        try:
+            ipaddress.ip_address(host_clean)
+            is_ip = True
+        except ValueError:
+            pass
+
+        if is_ip:
+            guard.assert_authorized(host_clean, interface=interface)
 
         start_time = time.perf_counter()
         records: List[DNSRecord] = []

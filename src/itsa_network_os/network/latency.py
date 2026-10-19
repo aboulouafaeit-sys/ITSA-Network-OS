@@ -6,7 +6,9 @@ import socket
 import statistics
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+from itsa_network_os.network.scope import ScopeGuard, ScopeViolationError, get_interface_source_ip
 
 
 @dataclass(frozen=True)
@@ -55,12 +57,33 @@ class LatencyTester:
         timeout: float = 2.0,
         interval: float = 0.2,
         use_mock: bool = False,
+        interface: Optional[str] = None,
+        scope_guard: Optional[ScopeGuard] = None,
     ) -> LatencyBenchmarkResult:
-        """Measure round-trip connection latency across multiple samples."""
+        """Measure round-trip connection latency across multiple samples.
+
+        In live mode (use_mock=False), verifies and resolves target strictly through
+        ScopeGuard, connecting to the validated IP to prevent DNS rebinding.
+        """
         host_clean = host.strip()
 
         if use_mock:
             return cls._mock_benchmark(host_clean, port, count)
+
+        # In live mode, require authorized ScopeGuard compliance
+        guard = scope_guard or ScopeGuard()
+        target_ip = guard.resolve_and_verify_target(
+            host_clean, interface=interface, check_unicast=True
+        )
+
+        source_address: Optional[Tuple[str, int]] = None
+        if interface is not None:
+            source_ip = get_interface_source_ip(interface, target_ip)
+            if source_ip is None:
+                raise ScopeViolationError(
+                    f"Cannot guarantee binding to authorized interface '{interface}': no compatible local IP address found"
+                )
+            source_address = (source_ip, 0)
 
         probes: List[LatencyProbe] = []
         latencies: List[float] = []
@@ -72,7 +95,9 @@ class LatencyTester:
             sample_ms = 0.0
 
             try:
-                with socket.create_connection((host_clean, port), timeout=timeout):
+                with socket.create_connection(
+                    (target_ip, port), timeout=timeout, source_address=source_address
+                ):
                     sample_ms = round((time.perf_counter() - start) * 1000, 2)
                     success = True
                     latencies.append(sample_ms)
