@@ -168,6 +168,39 @@ class Application:
             status_filter=status_filter,
         )
 
+    def export_diagnostic_session(
+        self,
+        session_id: Union[int, str],
+        format: str = "json",
+        output_path: Optional[Union[str, Path]] = None,
+        overwrite: bool = False,
+        create_dirs: bool = False,
+    ) -> Tuple[str, Optional[Path]]:
+        """Export a stored diagnostic assessment session into JSON, CSV, or Markdown.
+
+        Delegates session retrieval to DatabaseManager and export formatting to ReportExporter.
+        Raises SessionNotFoundError if the session does not exist.
+        """
+        from itsa_network_os.reports.exporter import ReportExporter, SessionNotFoundError
+
+        session = self.get_diagnostic_session(session_id, include_snapshots=True)
+        if session is None:
+            raise SessionNotFoundError(f"Diagnostic session '{session_id}' not found.")
+
+        self.logger.info(
+            "Exporting diagnostic session %s in '%s' format (output=%s)",
+            session_id,
+            format,
+            output_path,
+        )
+        return ReportExporter.export_session(
+            session=session,
+            format=format,
+            output_path=output_path,
+            overwrite=overwrite,
+            create_dirs=create_dirs,
+        )
+
     def check_health(self) -> SystemHealthReport:
         """Run system diagnostics."""
         self.logger.info("Executing read-only health checks")
