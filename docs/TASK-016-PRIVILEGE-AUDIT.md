@@ -59,11 +59,15 @@ Key guardrails:
 1. **Finite Action Set:** The helper exposes only explicit operations:
    - `OP_PING` (Health and version check)
    - `OP_GET_CAPABILITIES` (Compile-time capability check)
-   - `OP_CAPTURE_PACKETS` (Bounded packet capture)
-   - `OP_STOP_CAPTURE` (Immediate cancellation)
-2. **No Shell Invocations:** No commands are executed through a shell; no arbitrary binaries or arguments are accepted.
-3. **Strict Bounded Output:** Captures are bounded to a maximum of 50 packets, maximum 10.0 seconds execution duration, and maximum 1500 bytes per packet frame.
-4. **TASK-008 ScopeGuard Enforcement:** Privileged capture helpers mandate valid target scope enclosures and validated interface names, failing closed if out-of-scope targets are presented.
+   - `OP_START_CAPTURE` (Asynchronous capture session creation with capability token)
+   - `OP_STOP_CAPTURE` (Targeted session cancellation with capability token verification)
+   - `OP_GET_CAPTURE_RESULTS` (Targeted session status and results retrieval)
+   - `OP_CAPTURE_PACKETS` (Bounded synchronous packet capture with session tracking)
+2. **Fail-Closed Peer Credential Verification:** `SO_PEERCRED` verifies caller PID, UID, and GID directly from kernel space. Any failure fails closed with `PeerCredentialError`; no fallback to helper EUID or default root identity is permitted.
+3. **Session Ownership & Capability Tokens:** Every active session is tracked in a thread-safe `SessionRegistry`. Cancellation requires both caller UID ownership matching and constant-time capability token verification (`hmac.compare_digest`). No global cancellation state exists.
+4. **Deterministic Server-Side Packet Filtering:** Filter expressions are parsed and compiled into a strict `PacketFilter` on the trusted server side, enforcing protocol predicates (`tcp`, `udp`, `icmp`, `arp`) and port predicates without shell invocation or arbitrary code execution.
+5. **Mandatory ScopeGuard Enforcement:** Privileged capture mandates a non-empty list of valid target CIDR networks. Capture requests with missing or empty scopes fail closed with `SCOPE_VIOLATION`. Captured packets must have proven in-scope addresses to be admitted.
+6. **Strict Bounded Output:** Captures are bounded to a maximum of 50 packets, maximum 10.0 seconds execution duration, and maximum 1500 bytes per packet frame.
 
 ---
 
@@ -84,6 +88,6 @@ Privilege elevation is mediated by PolicyKit:
 
 In accordance with **TASK-008 (ADR-010)**:
 1. Privileged helpers validate all target interfaces against `InputValidator.validate_interface_name()`.
-2. Packet capture filters and IP targets are evaluated against the active `ScopeGuard` enclosure.
+2. Packet capture filters and IP targets are evaluated against the mandatory active `ScopeGuard` enclosure.
 3. No privileged operation can be used to scan arbitrary external subnets, public supernets (prefixlen < 8), or non-attributed interfaces.
 4. All authorization decisions and capture sessions generate immutable audit records.
