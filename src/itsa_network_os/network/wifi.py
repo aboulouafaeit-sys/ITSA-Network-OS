@@ -17,6 +17,7 @@ class WifiSecurityProtocol(str, Enum):
     WPA2_PSK = "WPA2-PSK (AES/CCMP)"
     WPA3_SAE = "WPA3-Personal (SAE)"
     ENTERPRISE = "WPA2/WPA3-Enterprise (802.1X)"
+    UNKNOWN = "Unknown"
 
 
 class WifiStandard(str, Enum):
@@ -134,8 +135,13 @@ class WirelessSpectrumAnalyzer:
     @classmethod
     def get_access_points(cls, use_mock: bool = True) -> List[AccessPointInfo]:
         """Fetch discovered wireless access points."""
-        # By default, use comprehensive deterministic mock data for safe, offline analysis
-        return cls._mock_access_points()
+        if use_mock:
+            # Deterministic mock fixtures for safe, offline analysis and testing
+            return cls._mock_access_points()
+
+        from itsa_network_os.network.wireless_scanner import LinuxWirelessScanner
+
+        return LinuxWirelessScanner.get_access_points()
 
     @classmethod
     def analyze_spectrum(

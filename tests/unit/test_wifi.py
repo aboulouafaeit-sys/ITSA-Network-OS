@@ -102,6 +102,24 @@ class TestWirelessSpectrumAnalyzer(unittest.TestCase):
         self.assertTrue(len(wep_aps[0].security_warnings) > 0)
         self.assertTrue(len(open_aps[0].security_warnings) > 0)
 
+    def test_get_access_points_live_dispatch_and_no_silent_fallback(self) -> None:
+        """Verify that use_mock=False invokes live scanner and never falls back to mock fixtures."""
+        from unittest.mock import patch
+        from itsa_network_os.network.wireless_scanner import LinuxWirelessScanner
+
+        with patch.object(LinuxWirelessScanner, "get_access_points", return_value=[]) as mock_live:
+            res = WirelessSpectrumAnalyzer.get_access_points(use_mock=False)
+            mock_live.assert_called_once()
+            # Must return real result (empty) and NEVER substitute mock access points
+            self.assertEqual(res, [])
+
+    def test_get_access_points_default_is_mock(self) -> None:
+        """Verify default argument use_mock=True returns mock fixtures for backward compatibility."""
+        res_default = WirelessSpectrumAnalyzer.get_access_points()
+        res_explicit = WirelessSpectrumAnalyzer.get_access_points(use_mock=True)
+        self.assertEqual(len(res_default), len(res_explicit))
+        self.assertEqual(res_default[0].ssid, res_explicit[0].ssid)
+
 
 if __name__ == "__main__":
     unittest.main()

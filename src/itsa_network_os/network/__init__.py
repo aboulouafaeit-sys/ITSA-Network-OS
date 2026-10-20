@@ -53,6 +53,10 @@ from itsa_network_os.network.wifi import (
     WifiStandard,
     WirelessSpectrumAnalyzer,
 )
+from itsa_network_os.network.wireless_scanner import (
+    IwScanParser,
+    LinuxWirelessScanner,
+)
 from itsa_network_os.network.spf import (
     DijkstraStep,
     LinkStatus,
@@ -125,6 +129,8 @@ __all__ = [
     "WifiSecurityProtocol",
     "WifiStandard",
     "WirelessSpectrumAnalyzer",
+    "IwScanParser",
+    "LinuxWirelessScanner",
     "InterfaceTrafficSample",
     "BandwidthRate",
     "TrafficMonitorEngine",

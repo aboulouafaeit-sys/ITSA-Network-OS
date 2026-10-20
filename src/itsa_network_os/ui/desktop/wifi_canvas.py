@@ -177,6 +177,7 @@ class SpectrumGraphWidget(QWidget):  # type: ignore
             WifiSecurityProtocol.OPEN: QColor("#d29922"),          # Amber warning
             WifiSecurityProtocol.WEP: QColor("#f85149"),           # Red critical
             WifiSecurityProtocol.WPA_PSK: QColor("#f0883e"),       # Orange
+            WifiSecurityProtocol.UNKNOWN: QColor("#8b949e"),       # Neutral gray
         }
 
         for ap in band_aps:
