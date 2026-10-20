@@ -6,8 +6,9 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from itsa_network_os.core.logger import get_logger
 from itsa_network_os.network.inspector import HostNetworkProvider
@@ -292,6 +293,86 @@ class LinuxWirelessScanner:
 
     SYSFS_NET_PATH = Path("/sys/class/net")
     COMMAND_TIMEOUT_SECONDS: float = 3.0
+    TOTAL_SCAN_DEADLINE_SECONDS: float = 8.0
+
+    @classmethod
+    def _execute_interruptible_scan(
+        cls,
+        cmd: List[str],
+        timeout: float,
+        cancellation_check: Optional[Callable[[], bool]] = None,
+    ) -> tuple[Optional[str], Optional[str], Optional[int], bool]:
+        """Execute subprocess with bounded polling for cooperative cancellation and child process reaping.
+
+        Returns:
+            (stdout, stderr, returncode, was_cancelled)
+        """
+        if cancellation_check and cancellation_check():
+            return None, None, -1, True
+
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        poll_interval = 0.05
+        start_time = time.monotonic()
+        was_cancelled = False
+        timed_out = False
+
+        try:
+            while proc.poll() is None:
+                if cancellation_check and cancellation_check():
+                    was_cancelled = True
+                    break
+                elapsed = time.monotonic() - start_time
+                if elapsed >= timeout:
+                    timed_out = True
+                    break
+                time.sleep(poll_interval)
+
+            if was_cancelled:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=0.4)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=0.4)
+                except Exception:
+                    pass
+                try:
+                    proc.communicate(timeout=0.2)
+                except Exception:
+                    pass
+                return None, None, -1, True
+
+            if timed_out:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=0.4)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.wait(timeout=0.4)
+                except Exception:
+                    pass
+                try:
+                    proc.communicate(timeout=0.2)
+                except Exception:
+                    pass
+                raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout)
+
+            stdout, stderr = proc.communicate()
+            return stdout, stderr, proc.returncode, False
+
+        finally:
+            if proc.poll() is None:
+                try:
+                    proc.kill()
+                    proc.wait(timeout=0.2)
+                except Exception:
+                    pass
 
     @classmethod
     def discover_wireless_interfaces(cls) -> List[str]:
@@ -325,7 +406,11 @@ class LinuxWirelessScanner:
         return sorted(interfaces)
 
     @classmethod
-    def get_access_points(cls, interface: Optional[str] = None) -> List[AccessPointInfo]:
+    def get_access_points(
+        cls,
+        interface: Optional[str] = None,
+        cancellation_check: Optional[Callable[[], bool]] = None,
+    ) -> List[AccessPointInfo]:
         """Read available cached wireless scan results non-destructively.
 
         Executes strictly 'iw dev <iface> scan dump'. Never runs active scans,
@@ -333,6 +418,9 @@ class LinuxWirelessScanner:
         Returns an empty list when no wireless card or scan data is present.
         """
         # Step 1: Preflight check for 'iw' executable
+        if cancellation_check and cancellation_check():
+            return []
+
         iw_path = shutil.which("iw")
         if not iw_path:
             logger.warning("Wireless inspection unavailable: 'iw' executable not found in PATH")
@@ -359,33 +447,66 @@ class LinuxWirelessScanner:
             return []
 
         # Step 3: Query scan dump on candidate wireless interfaces non-destructively
+        deadline = time.monotonic() + cls.TOTAL_SCAN_DEADLINE_SECONDS
         for iface in candidates:
-            cmd = [iw_path, "dev", iface, "scan", "dump"]
-            try:
-                res = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                    timeout=cls.COMMAND_TIMEOUT_SECONDS,
+            if cancellation_check and cancellation_check():
+                logger.info("Wireless scan dump cancelled before querying interface '%s'", iface)
+                return []
+
+            remaining_time = deadline - time.monotonic()
+            if remaining_time <= 0:
+                logger.warning(
+                    "Wireless scan overall deadline (%.1fs) expired before querying '%s'",
+                    cls.TOTAL_SCAN_DEADLINE_SECONDS,
+                    iface,
                 )
+                break
+
+            cmd_timeout = min(cls.COMMAND_TIMEOUT_SECONDS, remaining_time)
+            cmd = [iw_path, "dev", iface, "scan", "dump"]
+
+            try:
+                if cancellation_check is not None:
+                    stdout, stderr, returncode, was_cancelled = cls._execute_interruptible_scan(
+                        cmd,
+                        timeout=cmd_timeout,
+                        cancellation_check=cancellation_check,
+                    )
+                    if was_cancelled:
+                        logger.info("Wireless scan dump cancelled during execution on '%s'", iface)
+                        return []
+                else:
+                    res = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                        timeout=cmd_timeout,
+                    )
+                    stdout = res.stdout
+                    stderr = res.stderr
+                    returncode = res.returncode
             except subprocess.TimeoutExpired:
-                logger.warning("iw scan dump on '%s' timed out after %.1fs", iface, cls.COMMAND_TIMEOUT_SECONDS)
+                logger.warning("iw scan dump on '%s' timed out after %.1fs", iface, cmd_timeout)
                 continue
             except (FileNotFoundError, PermissionError, OSError) as exc:
                 logger.warning("iw scan dump on '%s' failed to execute: %s", iface, exc)
                 continue
 
-            if res.returncode != 0:
+            if cancellation_check and cancellation_check():
+                logger.info("Wireless scan dump cancelled post-execution on '%s'", iface)
+                return []
+
+            if returncode != 0:
                 logger.warning(
                     "iw scan dump on '%s' exited with code %d: %s",
                     iface,
-                    res.returncode,
-                    res.stderr.strip() if res.stderr else "unknown error",
+                    returncode,
+                    stderr.strip() if stderr else "unknown error",
                 )
                 continue
 
-            parsed_aps = IwScanParser.parse(res.stdout)
+            parsed_aps = IwScanParser.parse(stdout or "")
             if parsed_aps:
                 logger.info("Discovered %d cached access points on wireless interface '%s'", len(parsed_aps), iface)
                 return parsed_aps

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
 class WifiSecurityProtocol(str, Enum):
@@ -133,7 +133,11 @@ class WirelessSpectrumAnalyzer:
         return int(((rssi_dbm + 100) / 70.0) * 100)
 
     @classmethod
-    def get_access_points(cls, use_mock: bool = True) -> List[AccessPointInfo]:
+    def get_access_points(
+        cls,
+        use_mock: bool = True,
+        cancellation_check: Optional[Callable[[], bool]] = None,
+    ) -> List[AccessPointInfo]:
         """Fetch discovered wireless access points."""
         if use_mock:
             # Deterministic mock fixtures for safe, offline analysis and testing
@@ -141,7 +145,7 @@ class WirelessSpectrumAnalyzer:
 
         from itsa_network_os.network.wireless_scanner import LinuxWirelessScanner
 
-        return LinuxWirelessScanner.get_access_points()
+        return LinuxWirelessScanner.get_access_points(cancellation_check=cancellation_check)
 
     @classmethod
     def analyze_spectrum(

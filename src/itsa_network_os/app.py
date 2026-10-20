@@ -5,7 +5,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import threading
-from typing import Iterable, List, Optional, Union
+from typing import Callable, Iterable, List, Optional, Union
 
 from itsa_network_os.core.config import AppConfig, get_default_config, load_config
 from itsa_network_os.core.health import HealthCheckService, SystemHealthReport
@@ -335,17 +335,27 @@ class Application:
         self.logger.info("Synthesizing network topology graph")
         return TopologyDiscoveryEngine.get_default_topology()
 
-    def get_wifi_access_points(self, force_live: bool = False) -> List[AccessPointInfo]:
+    def get_wifi_access_points(
+        self,
+        force_live: bool = False,
+        cancellation_check: Optional[Callable[[], bool]] = None,
+    ) -> List[AccessPointInfo]:
         """Discover wireless access points (offline-first mock by default, non-destructive)."""
         use_mock = self.config.use_mock_network and not force_live
         self.logger.info("Scanning Wi-Fi access points (mock=%s)", use_mock)
-        return WirelessSpectrumAnalyzer.get_access_points(use_mock=use_mock)
+        return WirelessSpectrumAnalyzer.get_access_points(
+            use_mock=use_mock,
+            cancellation_check=cancellation_check,
+        )
 
     def analyze_wifi_spectrum(
-        self, band: SpectrumBand = SpectrumBand.BAND_2_4_GHZ, force_live: bool = False
+        self,
+        band: SpectrumBand = SpectrumBand.BAND_2_4_GHZ,
+        force_live: bool = False,
+        cancellation_check: Optional[Callable[[], bool]] = None,
     ) -> List[ChannelCongestionReport]:
         """Analyze wireless spectrum utilization and RF channel interference."""
-        aps = self.get_wifi_access_points(force_live=force_live)
+        aps = self.get_wifi_access_points(force_live=force_live, cancellation_check=cancellation_check)
         self.logger.info("Analyzing Wi-Fi spectrum for band %s across %d APs", band.value, len(aps))
         return WirelessSpectrumAnalyzer.analyze_spectrum(aps, band=band)
 
