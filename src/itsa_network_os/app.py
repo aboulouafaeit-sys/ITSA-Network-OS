@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
 import threading
 from typing import Callable, Iterable, List, Optional, Union
 
@@ -32,7 +33,14 @@ from itsa_network_os.network.vendor_manager import (
     VendorManagerEngine,
 )
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
-from itsa_network_os.security.lab import EducationalPacketLab, ParsedPacket
+from itsa_network_os.security.lab import (
+    EducationalPacketLab,
+    PacketField,
+    PacketLayer,
+    ParsedPacket,
+)
+from itsa_network_os.security.privilege.client import PrivilegedCaptureClient
+from itsa_network_os.security.privilege.protocol import CaptureStatus
 from itsa_network_os.security.tls import TLSInspectionReport, TLSInspectorEngine
 from itsa_network_os.security.validator import InputValidator
 from itsa_network_os.storage.database import DatabaseManager
@@ -48,6 +56,11 @@ class Application:
         self._traffic_monitor = TrafficMonitorEngine(use_mock=self.config.use_mock_network)
         self.scope_guard = ScopeGuard()
         self.logger.debug("Application initialized with configuration: %s", self.config.app_name)
+
+    @property
+    def is_running_as_root(self) -> bool:
+        """Check if process is executing with root privileges (EUID 0)."""
+        return hasattr(os, "geteuid") and os.geteuid() == 0
 
     def set_authorized_scope(
         self,
@@ -318,10 +331,83 @@ class Application:
         self.logger.info("Running security audit (mock=%s)", use_mock)
         return SecurityAuditor.run_audit(use_mock=use_mock)
 
-    def get_packet_lab_trace(self) -> List[ParsedPacket]:
-        """Fetch educational synthetic packet trace for protocol dissection."""
-        self.logger.info("Generating educational packet analysis trace")
-        return EducationalPacketLab.get_sample_trace()
+    def get_packet_lab_trace(
+        self,
+        force_live: bool = False,
+        interface: Optional[str] = None,
+        packet_count: int = 10,
+        timeout_seconds: float = 5.0,
+        filter_expression: Optional[str] = None,
+        helper_client: Optional[PrivilegedCaptureClient] = None,
+    ) -> List[ParsedPacket]:
+        """Fetch educational packet trace for protocol dissection.
+
+        In default offline mock mode, returns safe synthetic sample trace.
+        In live mode, queries the isolated privileged helper via PolicyKit authorization.
+        """
+        use_mock = self.config.use_mock_network and not force_live
+        if use_mock:
+            self.logger.info("Generating educational synthetic packet analysis trace")
+            return EducationalPacketLab.get_sample_trace()[:packet_count]
+
+        self.logger.info("Initiating live packet capture via privileged helper on interface %s", interface)
+        client = helper_client or PrivilegedCaptureClient()
+
+        # Target interface selection
+        target_iface = interface
+        if not target_iface:
+            # Pick first non-loopback host interface if available, else lo
+            ifaces = [i.name for i in self.get_network_interfaces() if i.name != "lo"]
+            target_iface = ifaces[0] if ifaces else "lo"
+
+        # Build scope CIDR list from active scope_guard
+        scope_cidrs: List[str] = []
+        if self.scope_guard and self.scope_guard.enclosure and self.scope_guard.enclosure.cidrs:
+            scope_cidrs = [str(net) for net in self.scope_guard.enclosure.cidrs]
+
+        if not scope_cidrs:
+            raise ScopeViolationError(
+                "Cannot initiate live packet capture: Authorized scope enclosure is unconfigured or contains no CIDR networks."
+            )
+
+        resp = client.capture_packets(
+            interface=target_iface,
+            packet_count=packet_count,
+            timeout_seconds=timeout_seconds,
+            filter_expression=filter_expression,
+            scope_cidrs=scope_cidrs,
+        )
+
+        if resp.status == CaptureStatus.DENIED:
+            raise PermissionError(f"PolicyKit authorization denied for packet capture: {resp.error_message}")
+        if resp.status == CaptureStatus.SCOPE_VIOLATION:
+            raise ScopeViolationError(f"Scope violation in packet capture request: {resp.error_message}")
+        if resp.status not in (CaptureStatus.SUCCESS, CaptureStatus.TIMEOUT):
+            raise RuntimeError(f"Privileged packet capture failed ({resp.status.value}): {resp.error_message}")
+
+        raw_packets = resp.payload.get("packets", [])
+        parsed_list: List[ParsedPacket] = []
+        for p_data in raw_packets:
+            layers = []
+            for l_data in p_data.get("layers", []):
+                fields = [
+                    PacketField(f.get("name", ""), f.get("value", ""), f.get("explanation", ""))
+                    for f in l_data.get("fields", [])
+                ]
+                layers.append(PacketLayer(l_data.get("layer_name", ""), fields))
+            parsed_list.append(
+                ParsedPacket(
+                    index=p_data.get("index", len(parsed_list) + 1),
+                    protocol=p_data.get("protocol", "UNKNOWN"),
+                    src=p_data.get("src", ""),
+                    dst=p_data.get("dst", ""),
+                    summary=p_data.get("summary", ""),
+                    length_bytes=p_data.get("length_bytes", 0),
+                    layers=layers,
+                )
+            )
+
+        return parsed_list
 
     def get_routing_table(self, force_live: bool = False) -> List[RouteEntry]:
         """Inspect system routing table entries in read-only mode."""
