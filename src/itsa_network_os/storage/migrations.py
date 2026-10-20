@@ -90,6 +90,65 @@ LEGACY_TABLE_SCHEMAS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# -----------------------------------------------------------------------------
+# Migration 005 Pre-Existing Schema Specifications (SEC-008)
+# -----------------------------------------------------------------------------
+
+MIGRATION_005_TABLE_SCHEMAS: Dict[str, Dict[str, Any]] = {
+    "diagnostic_sessions": {
+        "required_columns": {
+            "id",
+            "session_uuid",
+            "name",
+            "operator",
+            "scope_enclosure_json",
+            "status",
+            "started_at",
+            "completed_at",
+            "summary_json",
+            "metadata_json",
+        },
+        "primary_key": "id",
+        "column_types": {
+            "id": {"INTEGER"},
+            "session_uuid": {"TEXT"},
+            "name": {"TEXT"},
+            "operator": {"TEXT"},
+            "status": {"TEXT"},
+        },
+        "unique_columns": {"session_uuid"},
+    },
+    "diagnostic_snapshots": {
+        "required_columns": {
+            "id",
+            "session_id",
+            "snapshot_type",
+            "target",
+            "status",
+            "payload_json",
+            "redacted_fields_count",
+            "created_at",
+        },
+        "primary_key": "id",
+        "column_types": {
+            "id": {"INTEGER"},
+            "session_id": {"INTEGER"},
+            "snapshot_type": {"TEXT"},
+            "status": {"TEXT"},
+            "payload_json": {"TEXT"},
+            "redacted_fields_count": {"INTEGER"},
+        },
+        "foreign_keys": [
+            {
+                "table": "diagnostic_sessions",
+                "from": "session_id",
+                "to": "id",
+                "on_delete": "CASCADE",
+            }
+        ],
+    },
+}
+
 
 @dataclass(frozen=True)
 class Migration:
@@ -257,11 +316,44 @@ CREATE INDEX IF NOT EXISTS idx_tls_reports_host_port ON tls_inspection_reports(t
 CREATE INDEX IF NOT EXISTS idx_tls_certs_report_id ON tls_certificates(report_id);
 """
 
+MIGRATION_005_AUDIT_TRAIL_SESSIONS_SQL = """
+-- Diagnostic Audit Trail, Historical Sessions, and Secret-Redacted Snapshots
+CREATE TABLE IF NOT EXISTS diagnostic_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_uuid TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    operator TEXT DEFAULT 'system',
+    scope_enclosure_json TEXT,
+    status TEXT NOT NULL DEFAULT 'IN_PROGRESS',
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    summary_json TEXT,
+    metadata_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS diagnostic_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL REFERENCES diagnostic_sessions(id) ON DELETE CASCADE,
+    snapshot_type TEXT NOT NULL,
+    target TEXT,
+    status TEXT NOT NULL DEFAULT 'COMPLETED',
+    payload_json TEXT NOT NULL,
+    redacted_fields_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_diagnostic_sessions_uuid ON diagnostic_sessions(session_uuid);
+CREATE INDEX IF NOT EXISTS idx_diagnostic_sessions_status ON diagnostic_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_diagnostic_snapshots_session ON diagnostic_snapshots(session_id);
+CREATE INDEX IF NOT EXISTS idx_diagnostic_snapshots_type ON diagnostic_snapshots(snapshot_type);
+"""
+
 ALL_MIGRATIONS: Sequence[Migration] = (
     Migration(1, "001_baseline_history_tables", MIGRATION_001_BASELINE_SQL),
     Migration(2, "002_device_inventory", MIGRATION_002_DEVICE_INVENTORY_SQL),
     Migration(3, "003_wifi_scans", MIGRATION_003_WIFI_SCANS_SQL),
     Migration(4, "004_tls_audits", MIGRATION_004_TLS_AUDITS_SQL),
+    Migration(5, "005_audit_trail_sessions", MIGRATION_005_AUDIT_TRAIL_SESSIONS_SQL),
 )
 
 
@@ -399,6 +491,121 @@ class MigrationRunner:
                     raise IncompatibleSchemaError(
                         f"Pre-existing legacy table '{table_name}' is incompatible: "
                         f"column '{col}' has type '{actual_type}' (expected one of {sorted(allowed_types)})."
+                    )
+
+    @classmethod
+    def validate_migration_005_schemas(cls, conn: sqlite3.Connection) -> None:
+        """Validate pre-existing audit trail tables before Migration 005 execution (SEC-008).
+
+        Ensures that if either 'diagnostic_sessions' or 'diagnostic_snapshots' already
+        exists in the database prior to applying migration 5:
+        1. Both tables must exist together (partial pre-existing schemas fail closed).
+        2. All required columns exist with compatible declared types.
+        3. 'diagnostic_sessions' has 'id' as PRIMARY KEY and a UNIQUE constraint on 'session_uuid'.
+        4. 'diagnostic_snapshots' has 'id' as PRIMARY KEY and a valid foreign key to
+           'diagnostic_sessions(id)' with 'ON DELETE CASCADE'.
+
+        Raises IncompatibleSchemaError and fails closed if incompatible structures are found.
+        """
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        existing_tables = {row[0] for row in cursor.fetchall()}
+
+        has_sessions = "diagnostic_sessions" in existing_tables
+        has_snapshots = "diagnostic_snapshots" in existing_tables
+
+        if not has_sessions and not has_snapshots:
+            return
+
+        if has_sessions != has_snapshots:
+            present = "diagnostic_sessions" if has_sessions else "diagnostic_snapshots"
+            missing = "diagnostic_snapshots" if has_sessions else "diagnostic_sessions"
+            raise IncompatibleSchemaError(
+                f"Incompatible pre-existing schema for migration 5: table '{present}' exists but '{missing}' is missing. "
+                "Audit trail tables must either both be absent for fresh creation or both fully compatible."
+            )
+
+        for table_name, schema in MIGRATION_005_TABLE_SCHEMAS.items():
+            cursor.execute(f"PRAGMA table_info({table_name});")
+            col_rows = cursor.fetchall()
+            col_info = {
+                row[1]: {
+                    "type": (row[2] or "").upper(),
+                    "notnull": bool(row[3]),
+                    "dflt_value": row[4],
+                    "pk": row[5],
+                }
+                for row in col_rows
+            }
+
+            # 1. Validate required columns exist
+            required_cols: Set[str] = schema["required_columns"]
+            missing_cols = required_cols - set(col_info.keys())
+            if missing_cols:
+                raise IncompatibleSchemaError(
+                    f"Pre-existing table '{table_name}' is incompatible: "
+                    f"missing required column(s) {sorted(missing_cols)}. Migration 005 rejected."
+                )
+
+            # 2. Validate primary key
+            pk_col = schema["primary_key"]
+            if col_info[pk_col]["pk"] != 1:
+                raise IncompatibleSchemaError(
+                    f"Pre-existing table '{table_name}' is incompatible: "
+                    f"column '{pk_col}' must be declared as PRIMARY KEY."
+                )
+
+            # 3. Validate declared types
+            for col, allowed_types in schema.get("column_types", {}).items():
+                actual_type = col_info[col]["type"]
+                if actual_type and not any(allowed in actual_type for allowed in allowed_types):
+                    raise IncompatibleSchemaError(
+                        f"Pre-existing table '{table_name}' is incompatible: "
+                        f"column '{col}' has type '{actual_type}' (expected one of {sorted(allowed_types)})."
+                    )
+
+            # 4. Validate unique columns if required
+            for unique_col in schema.get("unique_columns", set()):
+                cursor.execute(f"PRAGMA index_list({table_name});")
+                indexes = cursor.fetchall()
+                found_unique = False
+                for idx_row in indexes:
+                    idx_name = idx_row[1]
+                    is_unique = bool(idx_row[2])
+                    if is_unique:
+                        cursor.execute(f"PRAGMA index_info({idx_name});")
+                        idx_cols = [c[2] for c in cursor.fetchall()]
+                        if unique_col in idx_cols:
+                            found_unique = True
+                            break
+                if not found_unique:
+                    raise IncompatibleSchemaError(
+                        f"Pre-existing table '{table_name}' is incompatible: "
+                        f"column '{unique_col}' must have a UNIQUE constraint."
+                    )
+
+            # 5. Validate foreign keys if required
+            for fk in schema.get("foreign_keys", []):
+                cursor.execute(f"PRAGMA foreign_key_list({table_name});")
+                fk_rows = cursor.fetchall()
+                found_fk = False
+                for fk_row in fk_rows:
+                    target_table = fk_row[2]
+                    from_col = fk_row[3]
+                    to_col = fk_row[4]
+                    on_delete = (fk_row[6] or "").upper()
+                    if (
+                        target_table == fk["table"]
+                        and from_col == fk["from"]
+                        and to_col == fk["to"]
+                        and on_delete == fk["on_delete"].upper()
+                    ):
+                        found_fk = True
+                        break
+                if not found_fk:
+                    raise IncompatibleSchemaError(
+                        f"Pre-existing table '{table_name}' is incompatible: "
+                        f"missing foreign key referencing '{fk['table']}({fk['to']})' with ON DELETE {fk['on_delete']}."
                     )
 
     def validate_applied_history(self, conn: sqlite3.Connection) -> int:
@@ -556,6 +763,8 @@ class MigrationRunner:
                     # If applying baseline v1, validate pre-existing legacy tables (SEC-001)
                     if m.version == 1:
                         self.validate_legacy_schemas(conn)
+                    elif m.version == 5:
+                        self.validate_migration_005_schemas(conn)
 
                     logger.info("Applying database migration v%d: %s", m.version, m.name)
 

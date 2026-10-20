@@ -34,7 +34,7 @@ class TestStorageMigrations(unittest.TestCase):
     def test_fresh_database_initialization(self) -> None:
         """Requirement 1: Fresh database initialization creates all target tables and migrations."""
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         # Inspect all created tables
         with db._get_connection() as conn:
@@ -54,6 +54,8 @@ class TestStorageMigrations(unittest.TestCase):
             "wifi_access_points",
             "tls_inspection_reports",
             "tls_certificates",
+            "diagnostic_sessions",
+            "diagnostic_snapshots",
         }
         self.assertTrue(expected_tables.issubset(set(tables)))
 
@@ -96,17 +98,27 @@ class TestStorageMigrations(unittest.TestCase):
         with db._get_connection() as conn:
             tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
         self.assertIn("tls_certificates", tables)
+        self.assertNotIn("diagnostic_sessions", tables)
+
+        # Step 5: Apply Migration 5 (TASK-012)
+        applied_v5 = db.apply_migrations(target_version=5)
+        self.assertEqual(applied_v5, [5])
+        self.assertEqual(db.get_schema_version(), 5)
+        with db._get_connection() as conn:
+            tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
+        self.assertIn("diagnostic_sessions", tables)
+        self.assertIn("diagnostic_snapshots", tables)
 
     def test_repeated_initialization_idempotency(self) -> None:
         """Requirement 3: Repeated instantiation is completely idempotent without duplicate migrations."""
         db1 = DatabaseManager(self.db_path)
-        self.assertEqual(db1.get_schema_version(), 4)
+        self.assertEqual(db1.get_schema_version(), 5)
         migrations_first = db1.get_applied_migrations()
-        self.assertEqual(len(migrations_first), 4)
+        self.assertEqual(len(migrations_first), 5)
 
         # Re-open database with a second manager
         db2 = DatabaseManager(self.db_path)
-        self.assertEqual(db2.get_schema_version(), 4)
+        self.assertEqual(db2.get_schema_version(), 5)
         migrations_second = db2.get_applied_migrations()
         self.assertEqual(migrations_first, migrations_second)
 
@@ -164,7 +176,7 @@ class TestStorageMigrations(unittest.TestCase):
 
         # Open with DatabaseManager and let migration runner adopt baseline
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         # Verify pre-existing data in all 4 tables was preserved with exact primary keys and fields
         with db._get_connection() as conn:
@@ -218,7 +230,7 @@ class TestStorageMigrations(unittest.TestCase):
     def test_migration_checksum_mismatch(self) -> None:
         """Requirement 5: Modified migration definition is detected and fails closed with diagnostic."""
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         # Define an altered runner where migration 2 has tampered SQL
         tampered_m2 = Migration(2, "002_device_inventory", "-- TAMPERED SQL CONTENT")
@@ -227,6 +239,7 @@ class TestStorageMigrations(unittest.TestCase):
             tampered_m2,
             ALL_MIGRATIONS[2],
             ALL_MIGRATIONS[3],
+            ALL_MIGRATIONS[4],
         ]
         tampered_runner = MigrationRunner(migrations=tampered_migrations)
 
@@ -276,12 +289,12 @@ class TestStorageMigrations(unittest.TestCase):
     def test_schema_version_and_downgrade_prohibition(self) -> None:
         """Requirement 7: Schema version queries work, and database downgrades are rejected."""
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         applied = db.get_applied_migrations()
-        self.assertEqual(len(applied), 4)
+        self.assertEqual(len(applied), 5)
         self.assertEqual(applied[0]["version"], 1)
-        self.assertEqual(applied[3]["version"], 4)
+        self.assertEqual(applied[4]["version"], 5)
 
         # Requesting lower target version than current must raise SchemaVersionError
         with self.assertRaises(SchemaVersionError) as cm:
@@ -367,7 +380,7 @@ class TestStorageMigrations(unittest.TestCase):
     def test_in_memory_database_initialization(self) -> None:
         """Requirement 10: In-memory database initializes all migrations and retains state."""
         db = DatabaseManager(":memory:")
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         # Record data
         sub_id = db.record_subnet_query("192.168.1.0/24", 254, "192.168.1.0", "192.168.1.255")
@@ -381,7 +394,7 @@ class TestStorageMigrations(unittest.TestCase):
     def test_concurrent_access_busy_timeout(self) -> None:
         """Requirement 11: Busy timeout pragma handles concurrent connections safely."""
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         # Connect with a second independent connection
         conn2 = sqlite3.connect(self.db_path)
@@ -566,7 +579,7 @@ class TestStorageMigrations(unittest.TestCase):
 
         # DatabaseManager must validate the 2 existing tables and create the 2 missing legacy tables cleanly
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
 
         # Confirm all 4 legacy tables now exist
         with db._get_connection() as c:
@@ -642,7 +655,7 @@ class TestStorageMigrations(unittest.TestCase):
             try:
                 barrier.wait()
                 db = DatabaseManager(self.db_path)
-                self.assertEqual(db.get_schema_version(), 4)
+                self.assertEqual(db.get_schema_version(), 5)
             except Exception as e:
                 errors.append((thread_idx, e))
 
@@ -656,17 +669,17 @@ class TestStorageMigrations(unittest.TestCase):
 
         # Verify final state
         db = DatabaseManager(self.db_path)
-        self.assertEqual(db.get_schema_version(), 4)
+        self.assertEqual(db.get_schema_version(), 5)
         applied = db.get_applied_migrations()
-        self.assertEqual(len(applied), 4)
-        self.assertEqual([m["version"] for m in applied], [1, 2, 3, 4])
+        self.assertEqual(len(applied), 5)
+        self.assertEqual([m["version"] for m in applied], [1, 2, 3, 4, 5])
 
         with db._get_connection() as c:
             tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()}
         expected = {
             "schema_migrations", "diagnostic_runs", "subnet_history", "dns_history", "latency_history",
             "discovered_devices", "device_evidence_records", "wifi_scan_sessions", "wifi_access_points",
-            "tls_inspection_reports", "tls_certificates"
+            "tls_inspection_reports", "tls_certificates", "diagnostic_sessions", "diagnostic_snapshots",
         }
         self.assertTrue(expected.issubset(tables))
 
@@ -688,7 +701,8 @@ class TestStorageMigrations(unittest.TestCase):
                 ALL_MIGRATIONS[1],
                 ALL_MIGRATIONS[2],
                 ALL_MIGRATIONS[3],
-                Migration(5, "005_failing", "CREATE TABLE canary_fail (id INT); SYNTAX ERROR;"),
+                ALL_MIGRATIONS[4],
+                Migration(6, "006_failing", "CREATE TABLE canary_fail (id INT); SYNTAX ERROR;"),
             ]
         )
         conn2 = sqlite3.connect(self.db_path)
@@ -718,8 +732,250 @@ class TestStorageMigrations(unittest.TestCase):
         cur_mem = mem_db._mem_conn.cursor()
         cur_mem.execute("SELECT count(*) FROM subnet_history WHERE cidr = '192.168.100.0/24';")
         self.assertEqual(cur_mem.fetchone()[0], 0)
+        mem_db.close()
 
+    def test_upgrade_from_v4_to_v5(self) -> None:
+        """Requirement: Upgrade from schema version 4 to 5 preserves all prior data and tables."""
+        # 1. Initialize runner strictly up to v4
+        db = DatabaseManager(self.db_path, auto_migrate=False)
+        db.apply_migrations(target_version=4)
+        self.assertEqual(db.get_schema_version(), 4)
+
+        # Seed data across v1-v4 tables
+        dev_id = db.record_discovered_device(
+            device_id="ROUTER-01",
+            name="Core Router",
+            category="MikroTik RouterOS",
+            vendor="MikroTik",
+            model="CCR1009",
+            ip_address="192.168.88.1",
+            mac_address="E4:8D:8C:01:02:03",
+            firmware_version="7.10",
+            discovery_protocol="MNDP",
+            security_status="SECURE",
+        )
+        self.assertGreater(dev_id, 0)
+
+        # 2. Upgrade to v5
+        applied = db.apply_migrations(target_version=5)
+        self.assertEqual(applied, [5])
+        self.assertEqual(db.get_schema_version(), 5)
+
+        # Verify prior data intact
+        devices = db.get_discovered_devices()
+        self.assertEqual(len(devices), 1)
+        self.assertEqual(devices[0]["name"], "Core Router")
+
+        # Verify v5 functionality operational
+        sess_id = db.create_diagnostic_session(name="Post-Upgrade Audit")
+        self.assertGreater(sess_id, 0)
+        snap_id = db.record_session_snapshot(
+            session_id=sess_id,
+            snapshot_type="UPGRADE_VERIFY",
+            payload={"status": "OK", "token": "secret123"},
+        )
+        self.assertGreater(snap_id, 0)
+        sess = db.get_diagnostic_session(sess_id)
+        self.assertEqual(sess["snapshots"][0]["payload"]["token"], "***REDACTED***")
+        db.close()
+
+    def test_migration_005_fails_when_sessions_table_incompatible(self) -> None:
+        """Check 1: Pre-existing incompatible diagnostic_sessions table fails closed on migration 5."""
+        db = DatabaseManager(self.db_path, auto_migrate=False)
+        db.apply_migrations(target_version=4)
+        self.assertEqual(db.get_schema_version(), 4)
+
+        # Inject incompatible diagnostic_sessions table (missing session_uuid, operator, etc.)
+        conn = db._get_connection()
+        try:
+            conn.execute("CREATE TABLE diagnostic_sessions (id INTEGER PRIMARY KEY, legacy_notes TEXT);")
+            conn.execute("INSERT INTO diagnostic_sessions (id, legacy_notes) VALUES (1, 'Legacy run');")
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Attempt to migrate to v5: must fail closed with IncompatibleSchemaError
+        with self.assertRaises(MigrationError) as cm:
+            db.apply_migrations(target_version=5)
+        self.assertIn("Incompatible pre-existing schema for migration 5", str(cm.exception))
+
+        # Schema version must remain at 4
+        self.assertEqual(db.get_schema_version(), 4)
+
+        # Legacy data must remain intact and unmodified
+        conn2 = db._get_connection()
+        try:
+            row = conn2.execute("SELECT legacy_notes FROM diagnostic_sessions WHERE id = 1;").fetchone()
+            self.assertEqual(row[0], "Legacy run")
+        finally:
+            conn2.close()
+        db.close()
+
+    def test_migration_005_fails_when_sessions_uuid_not_unique(self) -> None:
+        """Check 1: Pre-existing diagnostic_sessions lacking UNIQUE constraint on session_uuid fails closed."""
+        db = DatabaseManager(self.db_path, auto_migrate=False)
+        db.apply_migrations(target_version=4)
+        self.assertEqual(db.get_schema_version(), 4)
+
+        conn = db._get_connection()
+        try:
+            conn.execute("""
+                CREATE TABLE diagnostic_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_uuid TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    operator TEXT DEFAULT 'system',
+                    scope_enclosure_json TEXT,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    summary_json TEXT,
+                    metadata_json TEXT
+                );
+            """)
+            conn.execute("""
+                CREATE TABLE diagnostic_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL REFERENCES diagnostic_sessions(id) ON DELETE CASCADE,
+                    snapshot_type TEXT NOT NULL,
+                    target TEXT,
+                    status TEXT NOT NULL DEFAULT 'COMPLETED',
+                    payload_json TEXT NOT NULL,
+                    redacted_fields_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(MigrationError) as cm:
+            db.apply_migrations(target_version=5)
+        self.assertIn("must have a UNIQUE constraint", str(cm.exception))
+        self.assertEqual(db.get_schema_version(), 4)
+        db.close()
+
+    def test_migration_005_fails_when_snapshots_lacks_cascade_fk(self) -> None:
+        """Check 1: Pre-existing diagnostic_snapshots lacking ON DELETE CASCADE foreign key fails closed."""
+        db = DatabaseManager(self.db_path, auto_migrate=False)
+        db.apply_migrations(target_version=4)
+        self.assertEqual(db.get_schema_version(), 4)
+
+        conn = db._get_connection()
+        try:
+            conn.execute("""
+                CREATE TABLE diagnostic_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_uuid TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    operator TEXT DEFAULT 'system',
+                    scope_enclosure_json TEXT,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    summary_json TEXT,
+                    metadata_json TEXT
+                );
+            """)
+            conn.execute("""
+                CREATE TABLE diagnostic_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL REFERENCES diagnostic_sessions(id),
+                    snapshot_type TEXT NOT NULL,
+                    target TEXT,
+                    status TEXT NOT NULL DEFAULT 'COMPLETED',
+                    payload_json TEXT NOT NULL,
+                    redacted_fields_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(MigrationError) as cm:
+            db.apply_migrations(target_version=5)
+        self.assertIn("with ON DELETE CASCADE", str(cm.exception))
+        self.assertEqual(db.get_schema_version(), 4)
+        db.close()
+
+    def test_migration_005_fails_when_only_one_table_exists(self) -> None:
+        """Check 1: Pre-existing state where one audit trail table exists but the other does not fails closed."""
+        db = DatabaseManager(self.db_path, auto_migrate=False)
+        db.apply_migrations(target_version=4)
+
+        conn = db._get_connection()
+        try:
+            conn.execute("""
+                CREATE TABLE diagnostic_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL,
+                    snapshot_type TEXT NOT NULL,
+                    target TEXT,
+                    status TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    redacted_fields_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+        finally:
+            conn.close()
+
+        with self.assertRaises(MigrationError) as cm:
+            db.apply_migrations(target_version=5)
+        self.assertIn("exists but 'diagnostic_sessions' is missing", str(cm.exception))
+        self.assertEqual(db.get_schema_version(), 4)
+        db.close()
+
+    def test_migration_005_safely_adopts_fully_compatible_preexisting_tables(self) -> None:
+        """Check 1: Fully compatible pre-existing audit trail tables are safely adopted without data loss."""
+        db = DatabaseManager(self.db_path, auto_migrate=False)
+        db.apply_migrations(target_version=4)
+
+        conn = db._get_connection()
+        try:
+            conn.execute("""
+                CREATE TABLE diagnostic_sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_uuid TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    operator TEXT DEFAULT 'system',
+                    scope_enclosure_json TEXT,
+                    status TEXT NOT NULL DEFAULT 'running',
+                    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    summary_json TEXT,
+                    metadata_json TEXT
+                );
+            """)
+            conn.execute("""
+                CREATE TABLE diagnostic_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id INTEGER NOT NULL REFERENCES diagnostic_sessions(id) ON DELETE CASCADE,
+                    snapshot_type TEXT NOT NULL,
+                    target TEXT,
+                    status TEXT NOT NULL DEFAULT 'COMPLETED',
+                    payload_json TEXT NOT NULL,
+                    redacted_fields_count INTEGER NOT NULL DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.execute("INSERT INTO diagnostic_sessions (id, session_uuid, name) VALUES (1, 'pre-existing-uuid-1', 'Pre-Session');")
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Migrate to v5: should cleanly adopt without error
+        applied = db.apply_migrations(target_version=5)
+        self.assertEqual(applied, [5])
+        self.assertEqual(db.get_schema_version(), 5)
+
+        # Pre-existing session data must remain intact
+        sess = db.get_diagnostic_session(1)
+        self.assertIsNotNone(sess)
+        self.assertEqual(sess["name"], "Pre-Session")
+        db.close()
 
 if __name__ == "__main__":
     unittest.main()
-

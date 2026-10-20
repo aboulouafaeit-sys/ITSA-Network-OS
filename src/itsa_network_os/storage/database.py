@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
+from itsa_network_os.storage.redaction import CredentialRedactor, RedactionError
 from itsa_network_os.storage.migrations import (
     ALL_MIGRATIONS,
     MIGRATION_001_BASELINE_SQL,
@@ -47,6 +49,12 @@ class DatabaseManager:
         """Apply required performance and integrity pragmas to the SQLite connection."""
         conn.execute("PRAGMA foreign_keys = ON;")
         conn.execute("PRAGMA busy_timeout = 5000;")
+
+    def close(self) -> None:
+        """Close active in-memory connection if allocated."""
+        if self._mem_conn is not None:
+            self._mem_conn.close()
+            self._mem_conn = None
 
     def _get_connection(self) -> sqlite3.Connection:
         """Acquire an active SQLite connection."""
@@ -498,3 +506,302 @@ class DatabaseManager:
                 if rep.get("recommendations_json"):
                     rep["recommendations"] = json.loads(rep["recommendations_json"])
             return reports
+
+    # -------------------------------------------------------------------------
+    # Target Domain Persistence: Audit Trail & Diagnostic Sessions (Migration 005)
+    # -------------------------------------------------------------------------
+
+    def create_diagnostic_session(
+        self,
+        name: str,
+        operator: Optional[str] = "system",
+        scope_enclosure: Optional[Union[Dict[str, Any], Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        session_uuid: Optional[str] = None,
+    ) -> int:
+        """Create a new diagnostic assessment session record.
+
+        Args:
+            name: Human-readable diagnostic session title.
+            operator: Identifier for operator or system agent (neutral default: 'system').
+            scope_enclosure: ScopeEnclosure dict or object defining authorized boundaries.
+            metadata: Additional execution context metadata (sanitized before storage).
+            session_uuid: Optional pre-generated UUID4 string; auto-generated if omitted.
+
+        Returns:
+            int: The primary key ID of the created session record.
+        """
+        if not name or not isinstance(name, str) or not name.strip():
+            raise ValueError("Session name must be a non-empty string.")
+
+        s_uuid = session_uuid or str(uuid.uuid4())
+        op_val = operator if operator is not None else "system"
+
+        scope_dict = None
+        if scope_enclosure is not None:
+            if hasattr(scope_enclosure, "to_dict") and callable(getattr(scope_enclosure, "to_dict")):
+                scope_dict = scope_enclosure.to_dict()
+            elif isinstance(scope_enclosure, dict):
+                scope_dict = scope_enclosure
+            else:
+                scope_dict = {"scope": str(scope_enclosure)}
+
+        # Sanitize metadata before storage
+        sanitized_meta = None
+        if metadata is not None:
+            redacted_meta, _ = CredentialRedactor.redact(metadata)
+            sanitized_meta = json.dumps(redacted_meta)
+
+        scope_json = json.dumps(scope_dict) if scope_dict is not None else None
+
+        conn = self._get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO diagnostic_sessions (
+                    session_uuid, name, operator, scope_enclosure_json, status, metadata_json
+                ) VALUES (?, ?, ?, ?, 'IN_PROGRESS', ?)
+                """,
+                (s_uuid, name.strip(), op_val, scope_json, sanitized_meta),
+            )
+            conn.commit()
+            return cursor.lastrowid or 0
+        finally:
+            if self._mem_conn is None:
+                conn.close()
+
+    def record_session_snapshot(
+        self,
+        session_id: int,
+        snapshot_type: str,
+        payload: Union[Dict[str, Any], List[Any], Any],
+        target: Optional[str] = None,
+        status: str = "COMPLETED",
+    ) -> int:
+        """Record a sanitized diagnostic snapshot linked to an active session.
+
+        Mandatory Security Invariant:
+        Every snapshot payload is strictly scrubbed by CredentialRedactor before
+        serialization and database insertion. If redaction fails, the payload is
+        never persisted (fail-closed).
+        """
+        if not snapshot_type or not isinstance(snapshot_type, str):
+            raise ValueError("snapshot_type must be a non-empty string.")
+
+        # 1. Mandatory secret redaction before serialization
+        try:
+            sanitized_payload, redacted_count = CredentialRedactor.redact(payload)
+            payload_json = json.dumps(sanitized_payload)
+        except Exception as exc:
+            raise RedactionError(f"Snapshot payload failed mandatory sanitization: {exc}") from exc
+
+        # 2. Verify session exists and insert snapshot atomically
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM diagnostic_sessions WHERE id = ?;", (session_id,))
+            if not cur.fetchone():
+                raise ValueError(f"Diagnostic session with id={session_id} does not exist.")
+
+            cur.execute(
+                """
+                INSERT INTO diagnostic_snapshots (
+                    session_id, snapshot_type, target, status, payload_json, redacted_fields_count
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (session_id, snapshot_type.strip(), target, status, payload_json, redacted_count),
+            )
+            conn.commit()
+            return cur.lastrowid or 0
+        finally:
+            if self._mem_conn is None:
+                conn.close()
+
+    def complete_diagnostic_session(
+        self,
+        session_id: int,
+        status: str = "COMPLETED",
+        summary: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Finalize an active diagnostic session with completion timestamp and summary."""
+        sanitized_summary_json = None
+        if summary is not None:
+            try:
+                sanitized_summary, _ = CredentialRedactor.redact(summary)
+                sanitized_summary_json = json.dumps(sanitized_summary)
+            except Exception as exc:
+                raise RedactionError(f"Session summary failed mandatory sanitization: {exc}") from exc
+
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM diagnostic_sessions WHERE id = ?;", (session_id,))
+            if not cur.fetchone():
+                raise ValueError(f"Diagnostic session with id={session_id} does not exist.")
+
+            cur.execute(
+                """
+                UPDATE diagnostic_sessions
+                SET status = ?, completed_at = CURRENT_TIMESTAMP, summary_json = ?
+                WHERE id = ?
+                """,
+                (status, sanitized_summary_json, session_id),
+            )
+            conn.commit()
+        finally:
+            if self._mem_conn is None:
+                conn.close()
+
+    def get_diagnostic_session(
+        self,
+        session_id: Union[int, str],
+        include_snapshots: bool = True,
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve a diagnostic session record and its attached snapshots."""
+        conn = self._get_connection()
+        try:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            if isinstance(session_id, int) or (isinstance(session_id, str) and session_id.isdigit()):
+                cur.execute(
+                    "SELECT * FROM diagnostic_sessions WHERE id = ?;",
+                    (int(session_id),),
+                )
+            else:
+                cur.execute(
+                    "SELECT * FROM diagnostic_sessions WHERE session_uuid = ?;",
+                    (str(session_id),),
+                )
+            row = cur.fetchone()
+            if not row:
+                return None
+
+            sess = dict(row)
+            if sess.get("scope_enclosure_json"):
+                sess["scope_enclosure"] = json.loads(sess["scope_enclosure_json"])
+            if sess.get("summary_json"):
+                sess["summary"] = json.loads(sess["summary_json"])
+            if sess.get("metadata_json"):
+                sess["metadata"] = json.loads(sess["metadata_json"])
+
+            if include_snapshots:
+                cur.execute(
+                    """
+                    SELECT id, session_id, snapshot_type, target, status, payload_json,
+                           redacted_fields_count, created_at
+                    FROM diagnostic_snapshots
+                    WHERE session_id = ?
+                    ORDER BY id ASC
+                    """,
+                    (sess["id"],),
+                )
+                snapshots = []
+                for s_row in cur.fetchall():
+                    snap = dict(s_row)
+                    if snap.get("payload_json"):
+                        snap["payload"] = json.loads(snap["payload_json"])
+                    snapshots.append(snap)
+                sess["snapshots"] = snapshots
+
+            return sess
+        finally:
+            if self._mem_conn is None:
+                conn.close()
+
+    def list_diagnostic_sessions(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status_filter: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve recent diagnostic sessions ordered by creation date."""
+        conn = self._get_connection()
+        try:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            if status_filter:
+                cur.execute(
+                    """
+                    SELECT * FROM diagnostic_sessions
+                    WHERE status = ?
+                    ORDER BY id DESC LIMIT ? OFFSET ?
+                    """,
+                    (status_filter, limit, offset),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT * FROM diagnostic_sessions
+                    ORDER BY id DESC LIMIT ? OFFSET ?
+                    """,
+                    (limit, offset),
+                )
+            rows = [dict(r) for r in cur.fetchall()]
+            for r in rows:
+                if r.get("scope_enclosure_json"):
+                    r["scope_enclosure"] = json.loads(r["scope_enclosure_json"])
+                if r.get("summary_json"):
+                    r["summary"] = json.loads(r["summary_json"])
+                if r.get("metadata_json"):
+                    r["metadata"] = json.loads(r["metadata_json"])
+            return rows
+        finally:
+            if self._mem_conn is None:
+                conn.close()
+
+    def get_session_snapshots(
+        self,
+        session_id: int,
+        snapshot_type: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve snapshots attached to a specific session."""
+        conn = self._get_connection()
+        try:
+            conn.row_factory = sqlite3.Row
+            cur = conn.cursor()
+            if snapshot_type:
+                cur.execute(
+                    """
+                    SELECT id, session_id, snapshot_type, target, status, payload_json,
+                           redacted_fields_count, created_at
+                    FROM diagnostic_snapshots
+                    WHERE session_id = ? AND snapshot_type = ?
+                    ORDER BY id ASC LIMIT ?
+                    """,
+                    (session_id, snapshot_type, limit),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, session_id, snapshot_type, target, status, payload_json,
+                           redacted_fields_count, created_at
+                    FROM diagnostic_snapshots
+                    WHERE session_id = ?
+                    ORDER BY id ASC LIMIT ?
+                    """,
+                    (session_id, limit),
+                )
+            snapshots = []
+            for s_row in cur.fetchall():
+                snap = dict(s_row)
+                if snap.get("payload_json"):
+                    snap["payload"] = json.loads(snap["payload_json"])
+                snapshots.append(snap)
+            return snapshots
+        finally:
+            if self._mem_conn is None:
+                conn.close()
+
+    def delete_diagnostic_session(self, session_id: int) -> bool:
+        """Delete a diagnostic session and cascade deletion to all snapshots."""
+        conn = self._get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM diagnostic_sessions WHERE id = ?;", (session_id,))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            if self._mem_conn is None:
+                conn.close()

@@ -11,6 +11,12 @@ from itsa_network_os.storage.migrations import (
     MigrationRunner,
     SchemaVersionError,
 )
+from itsa_network_os.storage.redaction import (
+    CredentialRedactor,
+    RedactionError,
+    RedactionResult,
+    redact_sensitive_data,
+)
 
 __all__ = [
     "DatabaseManager",
@@ -22,4 +28,8 @@ __all__ = [
     "DatabaseCorruptionError",
     "SchemaVersionError",
     "IncompatibleSchemaError",
+    "CredentialRedactor",
+    "RedactionError",
+    "RedactionResult",
+    "redact_sensitive_data",
 ]

@@ -79,6 +79,95 @@ class Application:
         self.scope_guard.clear()
         self.logger.info("Cleared authorized network scope enclosure")
 
+    # -------------------------------------------------------------------------
+    # Diagnostic Session & Audit Trail Orchestration (TASK-012)
+    # -------------------------------------------------------------------------
+
+    def start_diagnostic_session(
+        self,
+        name: str,
+        operator: Optional[str] = "system",
+        metadata: Optional[Dict[str, Any]] = None,
+        session_uuid: Optional[str] = None,
+    ) -> int:
+        """Start a new tracked diagnostic assessment session.
+
+        Delegates persistence and metadata secret redaction to DatabaseManager.
+        Attaches the currently authorized ScopeEnclosure if configured.
+        """
+        self.logger.info("Initiating diagnostic assessment session: '%s'", name)
+        return self.database.create_diagnostic_session(
+            name=name,
+            operator=operator,
+            scope_enclosure=self.scope_guard.enclosure,
+            metadata=metadata,
+            session_uuid=session_uuid,
+        )
+
+    def record_session_snapshot(
+        self,
+        session_id: int,
+        snapshot_type: str,
+        payload: Union[Dict[str, Any], List[Any], Any],
+        target: Optional[str] = None,
+        status: str = "COMPLETED",
+    ) -> int:
+        """Record an audit trail snapshot linked to an active diagnostic session.
+
+        Delegates mandatory secret redaction and persistence to DatabaseManager.
+        """
+        self.logger.debug(
+            "Recording session snapshot (session_id=%d, type='%s', target=%s)",
+            session_id,
+            snapshot_type,
+            target,
+        )
+        return self.database.record_session_snapshot(
+            session_id=session_id,
+            snapshot_type=snapshot_type,
+            payload=payload,
+            target=target,
+            status=status,
+        )
+
+    def complete_diagnostic_session(
+        self,
+        session_id: int,
+        status: str = "COMPLETED",
+        summary: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Finalize an active diagnostic assessment session with sanitized summary."""
+        self.logger.info("Finalizing diagnostic session %d with status: %s", session_id, status)
+        self.database.complete_diagnostic_session(
+            session_id=session_id,
+            status=status,
+            summary=summary,
+        )
+
+    def get_diagnostic_session(
+        self,
+        session_id: Union[int, str],
+        include_snapshots: bool = True,
+    ) -> Optional[Dict[str, Any]]:
+        """Retrieve diagnostic session record and attached snapshots."""
+        return self.database.get_diagnostic_session(
+            session_id=session_id,
+            include_snapshots=include_snapshots,
+        )
+
+    def list_diagnostic_sessions(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        status_filter: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve historical diagnostic assessment sessions."""
+        return self.database.list_diagnostic_sessions(
+            limit=limit,
+            offset=offset,
+            status_filter=status_filter,
+        )
+
     def check_health(self) -> SystemHealthReport:
         """Run system diagnostics."""
         self.logger.info("Executing read-only health checks")
