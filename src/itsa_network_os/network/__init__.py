@@ -23,6 +23,20 @@ from itsa_network_os.network.models import (
     NetworkInterface,
     SubnetCalculationResult,
 )
+from itsa_network_os.network.assets import (
+    AssetCategory,
+    AssetGraph,
+    AssetIdentity,
+    AttributeHistory,
+    AttributeObservation,
+    EntityStatus,
+    IPBindingRecord,
+    LogicalLink,
+    NetworkAsset,
+    PhysicalPort,
+    RelationshipType,
+    TelemetryCategory,
+)
 from itsa_network_os.network.routes import RouteEntry, RouteParser, VlanInfo
 from itsa_network_os.network.scope import (
     ScopeEnclosure,
@@ -164,5 +178,16 @@ __all__ = [
     "ONVIFObservation",
     "ONVIFPassiveListener",
     "parse_ws_discovery",
+    "AssetCategory",
+    "AssetGraph",
+    "AssetIdentity",
+    "AttributeHistory",
+    "AttributeObservation",
+    "EntityStatus",
+    "IPBindingRecord",
+    "LogicalLink",
+    "NetworkAsset",
+    "PhysicalPort",
+    "RelationshipType",
+    "TelemetryCategory",
 ]
-

@@ -284,3 +284,14 @@ class EvidenceRecord:
             "details": self.details,
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> EvidenceRecord:
+        """Deserialize EvidenceRecord from a dictionary."""
+        return cls(
+            source_protocol=data["source_protocol"],
+            timestamp=data["timestamp"],
+            confidence=float(data["confidence"]),
+            is_verified_fact=bool(data["is_verified_fact"]),
+            attribute=data.get("attribute"),
+            details=data.get("details"),
+        )

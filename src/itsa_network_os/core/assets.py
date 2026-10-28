@@ -1,0 +1,56 @@
+"""Core asset domain models and topology contracts for ITSA Network OS.
+
+Re-exports unified asset contracts from itsa_network_os.network.assets for core subsystem access.
+"""
+
+from itsa_network_os.network.assets import (
+    AssetCategory,
+    AssetGraph,
+    AssetIdentity,
+    AttributeHistory,
+    AttributeObservation,
+    DEFAULT_CATEGORY_TTLS,
+    EntityStatus,
+    IPBindingRecord,
+    LogicalLink,
+    NetworkAsset,
+    PhysicalPort,
+    RelationshipType,
+    TelemetryCategory,
+    from_managed_device,
+    from_network_interface,
+    from_topology_node,
+    normalize_ip_address,
+    normalize_mac_address,
+    now_utc,
+    parse_utc_timestamp,
+    to_managed_device,
+    to_topology_link,
+    to_topology_node,
+)
+
+__all__ = [
+    "AssetCategory",
+    "AssetGraph",
+    "AssetIdentity",
+    "AttributeHistory",
+    "AttributeObservation",
+    "DEFAULT_CATEGORY_TTLS",
+    "EntityStatus",
+    "IPBindingRecord",
+    "LogicalLink",
+    "NetworkAsset",
+    "PhysicalPort",
+    "RelationshipType",
+    "TelemetryCategory",
+    "from_managed_device",
+    "from_network_interface",
+    "from_topology_node",
+    "normalize_ip_address",
+    "normalize_mac_address",
+    "now_utc",
+    "parse_utc_timestamp",
+    "to_managed_device",
+    "to_topology_link",
+    "to_topology_node",
+]
