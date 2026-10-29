@@ -25,7 +25,17 @@
           }
         }
       ]
-    }
+    },
+    "properties": [
+      {
+        "name": "itsa:hash_provenance_notice",
+        "value": "All SHA-256 hashes recorded on components represent locally inspected dist-info METADATA files or /usr/share/doc copyright files, not binary package archives."
+      },
+      {
+        "name": "itsa:schema_validation_status",
+        "value": "DEFERRED (AUDIT-018-05) - offline execution invariant without network or validator package installation."
+      }
+    ]
   },
   "components": [
     {
@@ -34,7 +44,7 @@
       "name": "PySide6",
       "version": "6.12.0",
       "scope": "optional",
-      "description": "Desktop GUI Framework (Optional)",
+      "description": "Desktop GUI Framework (Optional) (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pyside6@6.12.0",
       "licenses": [
         {
@@ -47,7 +57,17 @@
           "content": "efb12d59c176496ae09491d7240e6ddf3914df036c97680918354b15e632612d"
         }
       ],
-      "author": "Qt for Python Team <pyside@qt-project.org>"
+      "author": "Qt for Python Team <pyside@qt-project.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pyside6_addons@6.12.0",
@@ -55,7 +75,7 @@
       "name": "PySide6_Addons",
       "version": "6.12.0",
       "scope": "optional",
-      "description": "Additional Qt 6 C++ module bindings",
+      "description": "Additional Qt 6 C++ module bindings (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pyside6_addons@6.12.0",
       "licenses": [
         {
@@ -68,7 +88,17 @@
           "content": "e0a7d8ea2a767aa884877f7a5a18e60b9e0207e4e35e7df037a5beff285b9190"
         }
       ],
-      "author": "Qt for Python Team <pyside@qt-project.org>"
+      "author": "Qt for Python Team <pyside@qt-project.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pyside6_essentials@6.12.0",
@@ -76,7 +106,7 @@
       "name": "PySide6_Essentials",
       "version": "6.12.0",
       "scope": "optional",
-      "description": "Core Qt 6 C++ bindings & modules",
+      "description": "Core Qt 6 C++ bindings & modules (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pyside6_essentials@6.12.0",
       "licenses": [
         {
@@ -89,7 +119,17 @@
           "content": "68a36226bc8fdd63b54c51f35e8f52226e2e263881a102b23400056e2e689e60"
         }
       ],
-      "author": "Qt for Python Team <pyside@qt-project.org>"
+      "author": "Qt for Python Team <pyside@qt-project.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pyside6_pdf@6.12.0.140",
@@ -97,7 +137,7 @@
       "name": "PySide6_Pdf",
       "version": "6.12.0.140",
       "scope": "optional",
-      "description": "Qt PDF module bindings",
+      "description": "Qt PDF module bindings (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pyside6_pdf@6.12.0.140",
       "licenses": [
         {
@@ -110,7 +150,17 @@
           "content": "69a4a5ee41ac0c99bcf843077dc0204afb316607529bebfe1fca780d65f3c4a4"
         }
       ],
-      "author": "Qt for Python Team <pyside@qt-project.org>"
+      "author": "Qt for Python Team <pyside@qt-project.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pyside6_webengine@6.12.0.140",
@@ -118,7 +168,7 @@
       "name": "PySide6_WebEngine",
       "version": "6.12.0.140",
       "scope": "optional",
-      "description": "Chromium WebEngine bindings (Installed with PySide6 wheel)",
+      "description": "Chromium WebEngine bindings (Installed with PySide6 wheel) (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pyside6_webengine@6.12.0.140",
       "licenses": [
         {
@@ -131,7 +181,17 @@
           "content": "fc5dcfe71500c959686674e9e8ff9fca95451a1a5781fa3f6465262e5c22cafb"
         }
       ],
-      "author": "Qt for Python Team <pyside@qt-project.org>"
+      "author": "Qt for Python Team <pyside@qt-project.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pygments@2.21.0",
@@ -139,7 +199,7 @@
       "name": "Pygments",
       "version": "2.21.0",
       "scope": "excluded",
-      "description": "Syntax highlighter (pytest dependency)",
+      "description": "Syntax highlighter (pytest dependency) (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pygments@2.21.0",
       "licenses": [
         {
@@ -154,7 +214,17 @@
           "content": "1dde075570136774c706bf0009183a793fe0ee262e4a5590cc6eff8453eedd43"
         }
       ],
-      "author": "Georg Brandl <georg@python.org>"
+      "author": "Georg Brandl <georg@python.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/coverage@7.16.2",
@@ -162,7 +232,7 @@
       "name": "coverage",
       "version": "7.16.2",
       "scope": "excluded",
-      "description": "Code coverage engine",
+      "description": "Code coverage engine (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/coverage@7.16.2",
       "licenses": [
         {
@@ -177,7 +247,17 @@
           "content": "a5447449aa5b0b5a8b7c6a800434623a70c316750fcdde7ebd5b0b41fe756f99"
         }
       ],
-      "author": "Ned Batchelder and 263 others"
+      "author": "Ned Batchelder and 263 others",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/iniconfig@2.3.1",
@@ -185,7 +265,7 @@
       "name": "iniconfig",
       "version": "2.3.1",
       "scope": "excluded",
-      "description": "INI parser for pytest",
+      "description": "INI parser for pytest (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/iniconfig@2.3.1",
       "licenses": [
         {
@@ -200,7 +280,17 @@
           "content": "47c2c35d936f5c649d8074c6464719a42966a67b5cebad01e3e5784cf090cfb6"
         }
       ],
-      "author": "Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>, Holger Krekel <holger.krekel@gmail.com>"
+      "author": "Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>, Holger Krekel <holger.krekel@gmail.com>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/packaging@26.3",
@@ -208,7 +298,7 @@
       "name": "packaging",
       "version": "26.3",
       "scope": "excluded",
-      "description": "Core packaging version parsing utilities",
+      "description": "Core packaging version parsing utilities (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/packaging@26.3",
       "licenses": [
         {
@@ -221,7 +311,17 @@
           "content": "70fdb89fc4d4a9a043bf7372b8972bcc883fddff34ab55e9cf80d73875384763"
         }
       ],
-      "author": "Donald Stufft <donald@stufft.io>"
+      "author": "Donald Stufft <donald@stufft.io>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pip@26.2.1",
@@ -229,7 +329,7 @@
       "name": "pip",
       "version": "26.2.1",
       "scope": "required",
-      "description": "Package installer tool",
+      "description": "Package installer tool (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pip@26.2.1",
       "licenses": [
         {
@@ -244,7 +344,17 @@
           "content": "3a561005822841f2c45f442f6c7a7505172c8c376c9fe274d876c8ac912968cb"
         }
       ],
-      "author": "The pip developers <distutils-sig@python.org>"
+      "author": "The pip developers <distutils-sig@python.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pluggy@1.7.0",
@@ -252,7 +362,7 @@
       "name": "pluggy",
       "version": "1.7.0",
       "scope": "excluded",
-      "description": "Plugin framework for pytest",
+      "description": "Plugin framework for pytest (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pluggy@1.7.0",
       "licenses": [
         {
@@ -267,7 +377,17 @@
           "content": "20ac8237e37f1d6e7e75500cd663015177ba80c1a1a595ff6bae18a539ff8a2c"
         }
       ],
-      "author": "Holger Krekel"
+      "author": "Holger Krekel",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pytest@9.1.1",
@@ -275,7 +395,7 @@
       "name": "pytest",
       "version": "9.1.1",
       "scope": "excluded",
-      "description": "Unit test runner & framework",
+      "description": "Unit test runner & framework (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pytest@9.1.1",
       "licenses": [
         {
@@ -290,7 +410,17 @@
           "content": "c5d032518012789cabc870d46589aca3aeda36cf9fa4399ee88bda3d10438451"
         }
       ],
-      "author": "Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt"
+      "author": "Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/pytest-cov@7.1.0",
@@ -298,7 +428,7 @@
       "name": "pytest-cov",
       "version": "7.1.0",
       "scope": "excluded",
-      "description": "Pytest coverage measurement plugin",
+      "description": "Pytest coverage measurement plugin (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/pytest-cov@7.1.0",
       "licenses": [
         {
@@ -313,7 +443,17 @@
           "content": "d670e42439ea5a87c46d5659cfcbf64e29aaf7da3aca69dc03eecdafe7e4894c"
         }
       ],
-      "author": "Marc Schlaich <marc.schlaich@gmail.com>"
+      "author": "Marc Schlaich <marc.schlaich@gmail.com>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:pypi/shiboken6@6.12.0",
@@ -321,7 +461,7 @@
       "name": "shiboken6",
       "version": "6.12.0",
       "scope": "optional",
-      "description": "CPython binding generator & runtime library",
+      "description": "CPython binding generator & runtime library (Note: SHA-256 hash represents the local dist-info METADATA file on disk, not the wheel package archive).",
       "purl": "pkg:pypi/shiboken6@6.12.0",
       "licenses": [
         {
@@ -334,7 +474,17 @@
           "content": "586ac5f74d295853db808e93852887297b813f133ce13df319c8f3ee0ffaa417"
         }
       ],
-      "author": "Qt for Python Team <pyside@qt-project.org>"
+      "author": "Qt for Python Team <pyside@qt-project.org>",
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "dist-info METADATA file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local metadata on disk, not from binary package archive."
+        }
+      ]
     },
     {
       "bom-ref": "pkg:deb/debian/iproute2@debian13",
@@ -342,7 +492,7 @@
       "name": "iproute2",
       "version": "debian13",
       "scope": "required",
-      "description": "Linux network stack utilities (ip addr, ip route)",
+      "description": "Linux network stack utilities (ip addr, ip route) (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/iproute2@debian13",
       "licenses": [
         {
@@ -356,6 +506,16 @@
           "alg": "SHA-256",
           "content": "344ddcf4dfe65b86416e058309218b4ac1ee7bc1e624cc40ad87222cc979fdac"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -364,7 +524,7 @@
       "name": "iputils-ping",
       "version": "debian13",
       "scope": "required",
-      "description": "ICMP ping utilities",
+      "description": "ICMP ping utilities (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/iputils-ping@debian13",
       "licenses": [
         {
@@ -376,6 +536,16 @@
           "alg": "SHA-256",
           "content": "7b81610874d5b35eead7bf8bd1267d2210ac1c6078ac78561309f8fe9f6d7050"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -384,7 +554,7 @@
       "name": "traceroute",
       "version": "debian13",
       "scope": "required",
-      "description": "Route tracing utility",
+      "description": "Route tracing utility (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/traceroute@debian13",
       "licenses": [
         {
@@ -396,6 +566,16 @@
           "alg": "SHA-256",
           "content": "ed62b8662d68d192410f988e16c437f4cf2134c09f9d78d0beb61d398bb587df"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -404,7 +584,7 @@
       "name": "curl",
       "version": "debian13",
       "scope": "required",
-      "description": "Command-line HTTP/REST client tool",
+      "description": "Command-line HTTP/REST client tool (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/curl@debian13",
       "licenses": [
         {
@@ -416,6 +596,16 @@
           "alg": "SHA-256",
           "content": "e1b7678c8443b4f8ac69350e1eefd6132339b010cc3b870675fec0c0c29779a5"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -424,7 +614,7 @@
       "name": "iptables",
       "version": "debian13",
       "scope": "required",
-      "description": "IPv4/IPv6 packet filtering administration",
+      "description": "IPv4/IPv6 packet filtering administration (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/iptables@debian13",
       "licenses": [
         {
@@ -438,6 +628,16 @@
           "alg": "SHA-256",
           "content": "1f222344466008db3d978986ddf49e088473c807073d5d36a0d0768c54effd95"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -446,7 +646,7 @@
       "name": "nftables",
       "version": "debian13",
       "scope": "required",
-      "description": "Kernel packet classification framework",
+      "description": "Kernel packet classification framework (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/nftables@debian13",
       "licenses": [
         {
@@ -460,6 +660,16 @@
           "alg": "SHA-256",
           "content": "ede1a9831433483bf9ce57f46af958ff7591799aff8fdff1368a8a4cf2323996"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -468,7 +678,7 @@
       "name": "ca-certificates",
       "version": "debian13",
       "scope": "required",
-      "description": "Common CA certificates for TLS verification",
+      "description": "Common CA certificates for TLS verification (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/ca-certificates@debian13",
       "licenses": [
         {
@@ -480,6 +690,16 @@
           "alg": "SHA-256",
           "content": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -488,7 +708,7 @@
       "name": "python3",
       "version": "debian13",
       "scope": "required",
-      "description": "System Python 3.13 interpreter",
+      "description": "System Python 3.13 interpreter (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/python3@debian13",
       "licenses": [
         {
@@ -502,6 +722,16 @@
           "alg": "SHA-256",
           "content": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d"
         }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
+        }
       ]
     },
     {
@@ -510,7 +740,7 @@
       "name": "systemd",
       "version": "debian13",
       "scope": "required",
-      "description": "System and service manager / journald",
+      "description": "System and service manager / journald (Note: SHA-256 hash represents the /usr/share/doc copyright file on disk, not the deb binary package).",
       "purl": "pkg:deb/debian/systemd@debian13",
       "licenses": [
         {
@@ -521,6 +751,16 @@
         {
           "alg": "SHA-256",
           "content": "a79e4b379cabbd960bb44f6cc1a069081a3778c59a25ee529b68df5a2cb7d27d"
+        }
+      ],
+      "properties": [
+        {
+          "name": "itsa:hash:target",
+          "value": "/usr/share/doc copyright file"
+        },
+        {
+          "name": "itsa:hash:provenance_disclaimer",
+          "value": "Hash is calculated from local copyright documentation on disk, not from deb package archive."
         }
       ]
     }

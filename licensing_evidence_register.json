@@ -29,7 +29,22 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6-6.12.0.dist-info/METADATA",
       "metadata_file_sha256": "efb12d59c176496ae09491d7240e6ddf3914df036c97680918354b15e632612d",
       "license_files": [],
-      "distribution_status": "Shippable (Optional GUI)"
+      "distribution_status": "Shippable (Optional GUI)",
+      "applicable_license_texts": [
+        {
+          "license_id": "LGPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/LGPL-3",
+          "evidence_sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+          "notes": "GNU Lesser General Public License version 3 text from local Debian common-licenses."
+        },
+        {
+          "license_id": "GPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/GPL-3",
+          "evidence_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "notes": "GNU General Public License version 3 text incorporated by reference into LGPLv3 (section 1)."
+        }
+      ],
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "PySide6_Addons",
@@ -46,7 +61,22 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_addons-6.12.0.dist-info/METADATA",
       "metadata_file_sha256": "e0a7d8ea2a767aa884877f7a5a18e60b9e0207e4e35e7df037a5beff285b9190",
       "license_files": [],
-      "distribution_status": "Shippable (Optional GUI)"
+      "distribution_status": "Shippable (Optional GUI)",
+      "applicable_license_texts": [
+        {
+          "license_id": "LGPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/LGPL-3",
+          "evidence_sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+          "notes": "GNU Lesser General Public License version 3 text from local Debian common-licenses."
+        },
+        {
+          "license_id": "GPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/GPL-3",
+          "evidence_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "notes": "GNU General Public License version 3 text incorporated by reference into LGPLv3 (section 1)."
+        }
+      ],
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "PySide6_Essentials",
@@ -63,7 +93,22 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_essentials-6.12.0.dist-info/METADATA",
       "metadata_file_sha256": "68a36226bc8fdd63b54c51f35e8f52226e2e263881a102b23400056e2e689e60",
       "license_files": [],
-      "distribution_status": "Shippable (Optional GUI)"
+      "distribution_status": "Shippable (Optional GUI)",
+      "applicable_license_texts": [
+        {
+          "license_id": "LGPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/LGPL-3",
+          "evidence_sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+          "notes": "GNU Lesser General Public License version 3 text from local Debian common-licenses."
+        },
+        {
+          "license_id": "GPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/GPL-3",
+          "evidence_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "notes": "GNU General Public License version 3 text incorporated by reference into LGPLv3 (section 1)."
+        }
+      ],
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "PySide6_Pdf",
@@ -80,7 +125,22 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_pdf-6.12.0.140.dist-info/METADATA",
       "metadata_file_sha256": "69a4a5ee41ac0c99bcf843077dc0204afb316607529bebfe1fca780d65f3c4a4",
       "license_files": [],
-      "distribution_status": "Shippable (Optional GUI)"
+      "distribution_status": "Shippable (Optional GUI)",
+      "applicable_license_texts": [
+        {
+          "license_id": "LGPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/LGPL-3",
+          "evidence_sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+          "notes": "GNU Lesser General Public License version 3 text from local Debian common-licenses."
+        },
+        {
+          "license_id": "GPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/GPL-3",
+          "evidence_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "notes": "GNU General Public License version 3 text incorporated by reference into LGPLv3 (section 1)."
+        }
+      ],
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "PySide6_WebEngine",
@@ -97,7 +157,22 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_webengine-6.12.0.140.dist-info/METADATA",
       "metadata_file_sha256": "fc5dcfe71500c959686674e9e8ff9fca95451a1a5781fa3f6465262e5c22cafb",
       "license_files": [],
-      "distribution_status": "Shippable (Optional GUI)"
+      "distribution_status": "Shippable (Optional GUI)",
+      "applicable_license_texts": [
+        {
+          "license_id": "LGPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/LGPL-3",
+          "evidence_sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+          "notes": "GNU Lesser General Public License version 3 text from local Debian common-licenses."
+        },
+        {
+          "license_id": "GPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/GPL-3",
+          "evidence_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "notes": "GNU General Public License version 3 text incorporated by reference into LGPLv3 (section 1)."
+        }
+      ],
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "Pygments",
@@ -115,19 +190,20 @@
       "metadata_file_sha256": "1dde075570136774c706bf0009183a793fe0ee262e4a5590cc6eff8453eedd43",
       "license_files": [
         {
-          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pygments-2.21.0.dist-info/licenses/AUTHORS",
-          "relative": "pygments-2.21.0.dist-info/licenses/AUTHORS",
-          "sha256": "71a83872ad82f57be692cf827e048e2cd51d45169cfa1ea3f28706d97a872c0f",
-          "size": 11048
-        },
-        {
           "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pygments-2.21.0.dist-info/licenses/LICENSE",
           "relative": "pygments-2.21.0.dist-info/licenses/LICENSE",
           "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
           "size": 1331
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pygments-2.21.0.dist-info/licenses/AUTHORS",
+          "relative": "pygments-2.21.0.dist-info/licenses/AUTHORS",
+          "sha256": "71a83872ad82f57be692cf827e048e2cd51d45169cfa1ea3f28706d97a872c0f",
+          "size": 11048
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "coverage",
@@ -157,7 +233,8 @@
           "size": 681
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "iniconfig",
@@ -181,7 +258,8 @@
           "size": 1098
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "itsa-network-os",
@@ -198,7 +276,8 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/src/itsa_network_os.egg-info/PKG-INFO",
       "metadata_file_sha256": "48224094316a8d77c001af84f63bee155d1b8e25f60d625c43cb77f6958369cf",
       "license_files": [],
-      "distribution_status": "Shippable Core"
+      "distribution_status": "Shippable Core",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "packaging",
@@ -258,7 +337,8 @@
           "size": 51122
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "pip",
@@ -552,7 +632,8 @@
           "size": 1093
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "pluggy",
@@ -576,7 +657,8 @@
           "size": 1110
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "pytest",
@@ -600,7 +682,8 @@
           "size": 1091
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "pytest-cov",
@@ -630,7 +713,8 @@
           "size": 1071
         }
       ],
-      "distribution_status": "Excluded from Distribution (Dev/Test)"
+      "distribution_status": "Excluded from Distribution (Dev/Test)",
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     },
     {
       "name": "shiboken6",
@@ -647,7 +731,22 @@
       "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/shiboken6-6.12.0.dist-info/METADATA",
       "metadata_file_sha256": "586ac5f74d295853db808e93852887297b813f133ce13df319c8f3ee0ffaa417",
       "license_files": [],
-      "distribution_status": "Shippable (Optional GUI)"
+      "distribution_status": "Shippable (Optional GUI)",
+      "applicable_license_texts": [
+        {
+          "license_id": "LGPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/LGPL-3",
+          "evidence_sha256": "e3a994d82e644b03a792a930f574002658412f62407f5fee083f2555c5f23118",
+          "notes": "GNU Lesser General Public License version 3 text from local Debian common-licenses."
+        },
+        {
+          "license_id": "GPL-3.0-only",
+          "evidence_path": "/usr/share/common-licenses/GPL-3",
+          "evidence_sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+          "notes": "GNU General Public License version 3 text incorporated by reference into LGPLv3 (section 1)."
+        }
+      ],
+      "hash_provenance": "SHA-256 of locally installed dist-info METADATA file (not package binary archive)"
     }
   ],
   "verified_host_system_packages": [
@@ -667,7 +766,8 @@
       "evidence_source": "/usr/share/doc/iproute2/copyright",
       "evidence_sha256": "344ddcf4dfe65b86416e058309218b4ac1ee7bc1e624cc40ad87222cc979fdac",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "iputils-ping",
@@ -684,7 +784,8 @@
       "evidence_source": "/usr/share/doc/iputils-ping/copyright",
       "evidence_sha256": "7b81610874d5b35eead7bf8bd1267d2210ac1c6078ac78561309f8fe9f6d7050",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "traceroute",
@@ -701,7 +802,8 @@
       "evidence_source": "/usr/share/doc/traceroute/copyright",
       "evidence_sha256": "ed62b8662d68d192410f988e16c437f4cf2134c09f9d78d0beb61d398bb587df",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "curl",
@@ -718,7 +820,8 @@
       "evidence_source": "/usr/share/doc/curl/copyright",
       "evidence_sha256": "e1b7678c8443b4f8ac69350e1eefd6132339b010cc3b870675fec0c0c29779a5",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "iptables",
@@ -735,7 +838,8 @@
       "evidence_source": "/usr/share/doc/iptables/copyright",
       "evidence_sha256": "1f222344466008db3d978986ddf49e088473c807073d5d36a0d0768c54effd95",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "nftables",
@@ -752,7 +856,8 @@
       "evidence_source": "/usr/share/doc/nftables/copyright",
       "evidence_sha256": "ede1a9831433483bf9ce57f46af958ff7591799aff8fdff1368a8a4cf2323996",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "ca-certificates",
@@ -769,7 +874,8 @@
       "evidence_source": "/usr/share/doc/ca-certificates/copyright",
       "evidence_sha256": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "python3",
@@ -786,7 +892,8 @@
       "evidence_source": "/usr/share/doc/python3/copyright",
       "evidence_sha256": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     },
     {
       "name": "systemd",
@@ -803,7 +910,8 @@
       "evidence_source": "/usr/share/doc/systemd/copyright",
       "evidence_sha256": "a79e4b379cabbd960bb44f6cc1a069081a3778c59a25ee529b68df5a2cb7d27d",
       "verification_status": "VERIFIED_ON_HOST",
-      "distribution_status": "Host System Component"
+      "distribution_status": "Host System Component",
+      "hash_provenance": "SHA-256 of local /usr/share/doc/<pkg>/copyright file (not deb binary package archive)"
     }
   ],
   "declared_iso_chroot_packages": [
@@ -942,7 +1050,7 @@
       "functional_role": "Lightweight desktop environment for Live ISO",
       "concluded_license": "GPL-2.0-or-later",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -970,7 +1078,7 @@
       "functional_role": "Display manager / desktop login greeter",
       "concluded_license": "GPL-3.0-or-later AND LGPL-2.0-or-later",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1110,7 +1218,7 @@
       "functional_role": "DNS lookup utilities (dig, nslookup)",
       "concluded_license": "MPL-2.0",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1124,7 +1232,7 @@
       "functional_role": "Network interface hardware & driver query utility",
       "concluded_license": "GPL-2.0-only",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1138,7 +1246,7 @@
       "functional_role": "Command-line packet capture utility",
       "concluded_license": "BSD-3-Clause",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1152,7 +1260,7 @@
       "functional_role": "Legacy networking utilities (arp, route, netstat)",
       "concluded_license": "GPL-2.0-only",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1166,7 +1274,7 @@
       "functional_role": "SQLite command-line interface tool",
       "concluded_license": "Blessing / Public Domain",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1194,7 +1302,7 @@
       "functional_role": "Terminal network traffic analyzer / Wireshark dissector",
       "concluded_license": "GPL-2.0-or-later",
       "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
-      "unresolved_issue": "None (External binary execution only)",
+      "unresolved_issue": null,
       "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
       "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
       "distribution_status": "Planned Distribution Manifest (Unbuilt)"
@@ -1217,5 +1325,8 @@
       "context": "Debian 13 Live ISO configurations include non-free-firmware for physical hardware Wi-Fi/NIC driver support. Certain vendor firmware blobs grant redistribution only under strict binary-unmodified conditions.",
       "recommendation": "Verify explicit redistribution grants for all included firmware packages during ISO build verification (TASK-017)."
     }
-  ]
+  ],
+  "verification_limitations": {
+    "AUDIT-018-05": "Official online schema validation of SPDX/CycloneDX outputs remains deferred due to lack of local validator tooling and strict offline execution constraints."
+  }
 }

@@ -10,7 +10,7 @@
       "Organization: ITSA Network OS Maintainers"
     ],
     "created": "2026-10-29T17:42:00Z",
-    "comment": "SPDX 2.3 software bill of materials generated from local package metadata and verified evidence (TASK-018)."
+    "comment": "SPDX 2.3 software bill of materials generated from local package metadata and verified evidence (TASK-018). All package checksums explicitly represent locally inspected dist-info METADATA files or /usr/share/doc copyright files, not binary package archives. Official online schema validation is deferred per AUDIT-018-05."
   },
   "packages": [
     {
