@@ -1,0 +1,1221 @@
+{
+  "project_name": "ITSA Network OS",
+  "project_version": "0.1.0",
+  "audit_task": "TASK-018",
+  "audit_date": "2026-10-29T17:42:00Z",
+  "audit_baseline_commit": "1fcf56804af4a20b97167d81fe1f7c09d4b8c53e",
+  "summary_counts": {
+    "total_python_components": 15,
+    "declared_direct_python": 2,
+    "transitive_runtime_python": 5,
+    "development_test_python": 7,
+    "verified_host_system_packages": 9,
+    "declared_iso_chroot_packages": 28,
+    "unresolved_licensing_questions": 2
+  },
+  "python_components": [
+    {
+      "name": "PySide6",
+      "version": "6.12.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "declared_direct",
+      "scope": "optional_gui",
+      "functional_role": "Desktop GUI Framework (Optional)",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "concluded_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "confidence": "HIGH",
+      "author_supplier": "Qt for Python Team <pyside@qt-project.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6-6.12.0.dist-info/METADATA",
+      "metadata_file_sha256": "efb12d59c176496ae09491d7240e6ddf3914df036c97680918354b15e632612d",
+      "license_files": [],
+      "distribution_status": "Shippable (Optional GUI)"
+    },
+    {
+      "name": "PySide6_Addons",
+      "version": "6.12.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "optional_gui",
+      "functional_role": "Additional Qt 6 C++ module bindings",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "concluded_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "confidence": "HIGH",
+      "author_supplier": "Qt for Python Team <pyside@qt-project.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_addons-6.12.0.dist-info/METADATA",
+      "metadata_file_sha256": "e0a7d8ea2a767aa884877f7a5a18e60b9e0207e4e35e7df037a5beff285b9190",
+      "license_files": [],
+      "distribution_status": "Shippable (Optional GUI)"
+    },
+    {
+      "name": "PySide6_Essentials",
+      "version": "6.12.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "optional_gui",
+      "functional_role": "Core Qt 6 C++ bindings & modules",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "concluded_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "confidence": "HIGH",
+      "author_supplier": "Qt for Python Team <pyside@qt-project.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_essentials-6.12.0.dist-info/METADATA",
+      "metadata_file_sha256": "68a36226bc8fdd63b54c51f35e8f52226e2e263881a102b23400056e2e689e60",
+      "license_files": [],
+      "distribution_status": "Shippable (Optional GUI)"
+    },
+    {
+      "name": "PySide6_Pdf",
+      "version": "6.12.0.140",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "optional_gui",
+      "functional_role": "Qt PDF module bindings",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "concluded_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "confidence": "HIGH",
+      "author_supplier": "Qt for Python Team <pyside@qt-project.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_pdf-6.12.0.140.dist-info/METADATA",
+      "metadata_file_sha256": "69a4a5ee41ac0c99bcf843077dc0204afb316607529bebfe1fca780d65f3c4a4",
+      "license_files": [],
+      "distribution_status": "Shippable (Optional GUI)"
+    },
+    {
+      "name": "PySide6_WebEngine",
+      "version": "6.12.0.140",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "optional_gui",
+      "functional_role": "Chromium WebEngine bindings (Installed with PySide6 wheel)",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "concluded_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "confidence": "HIGH",
+      "author_supplier": "Qt for Python Team <pyside@qt-project.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pyside6_webengine-6.12.0.140.dist-info/METADATA",
+      "metadata_file_sha256": "fc5dcfe71500c959686674e9e8ff9fca95451a1a5781fa3f6465262e5c22cafb",
+      "license_files": [],
+      "distribution_status": "Shippable (Optional GUI)"
+    },
+    {
+      "name": "Pygments",
+      "version": "2.21.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "dev_test",
+      "functional_role": "Syntax highlighter (pytest dependency)",
+      "declared_license": "BSD-2-Clause",
+      "concluded_license": "BSD-2-Clause",
+      "confidence": "HIGH",
+      "author_supplier": "Georg Brandl <georg@python.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pygments-2.21.0.dist-info/METADATA",
+      "metadata_file_sha256": "1dde075570136774c706bf0009183a793fe0ee262e4a5590cc6eff8453eedd43",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pygments-2.21.0.dist-info/licenses/AUTHORS",
+          "relative": "pygments-2.21.0.dist-info/licenses/AUTHORS",
+          "sha256": "71a83872ad82f57be692cf827e048e2cd51d45169cfa1ea3f28706d97a872c0f",
+          "size": 11048
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pygments-2.21.0.dist-info/licenses/LICENSE",
+          "relative": "pygments-2.21.0.dist-info/licenses/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "size": 1331
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "coverage",
+      "version": "7.16.2",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "dev_test",
+      "functional_role": "Code coverage engine",
+      "declared_license": "Apache-2.0",
+      "concluded_license": "Apache-2.0",
+      "confidence": "HIGH",
+      "author_supplier": "Ned Batchelder and 263 others",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/coverage-7.16.2.dist-info/METADATA",
+      "metadata_file_sha256": "a5447449aa5b0b5a8b7c6a800434623a70c316750fcdde7ebd5b0b41fe756f99",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/coverage-7.16.2.dist-info/licenses/LICENSE.txt",
+          "relative": "coverage-7.16.2.dist-info/licenses/LICENSE.txt",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "size": 10174
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/coverage-7.16.2.dist-info/licenses/NOTICE.txt",
+          "relative": "coverage-7.16.2.dist-info/licenses/NOTICE.txt",
+          "sha256": "80e177ab397d5f332954693a52abc1b34b06c5792dd57297608b6d68a2f6af11",
+          "size": 681
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "dev_test",
+      "functional_role": "INI parser for pytest",
+      "declared_license": "MIT",
+      "concluded_license": "MIT",
+      "confidence": "HIGH",
+      "author_supplier": "Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>, Holger Krekel <holger.krekel@gmail.com>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/iniconfig-2.3.1.dist-info/METADATA",
+      "metadata_file_sha256": "47c2c35d936f5c649d8074c6464719a42966a67b5cebad01e3e5784cf090cfb6",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/iniconfig-2.3.1.dist-info/licenses/LICENSE",
+          "relative": "iniconfig-2.3.1.dist-info/licenses/LICENSE",
+          "sha256": "3409fa91f7ace557894632676656e32264fe5ef7581535725dc9a23774551bd4",
+          "size": 1098
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "itsa-network-os",
+      "version": "0.1.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "declared_direct",
+      "scope": "application_root",
+      "functional_role": "Application Core",
+      "declared_license": "MIT",
+      "concluded_license": "MIT",
+      "confidence": "HIGH",
+      "author_supplier": "ITSA Network OS Maintainers",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/src/itsa_network_os.egg-info/PKG-INFO",
+      "metadata_file_sha256": "48224094316a8d77c001af84f63bee155d1b8e25f60d625c43cb77f6958369cf",
+      "license_files": [],
+      "distribution_status": "Shippable Core"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "dev_test",
+      "functional_role": "Core packaging version parsing utilities",
+      "declared_license": "Apache-2.0 OR BSD-2-Clause",
+      "concluded_license": "Apache-2.0 OR BSD-2-Clause",
+      "confidence": "HIGH",
+      "author_supplier": "Donald Stufft <donald@stufft.io>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging-26.3.dist-info/METADATA",
+      "metadata_file_sha256": "70fdb89fc4d4a9a043bf7372b8972bcc883fddff34ab55e9cf80d73875384763",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging-26.3.dist-info/licenses/LICENSE",
+          "relative": "packaging-26.3.dist-info/licenses/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "size": 197
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+          "relative": "packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "size": 10174
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging-26.3.dist-info/licenses/LICENSE.BSD",
+          "relative": "packaging-26.3.dist-info/licenses/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "size": 1344
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging/licenses/__init__.py",
+          "relative": "packaging/licenses/__init__.py",
+          "sha256": "590d12eee73ddbec53b4e9ee5bfc64d9cb3aacb4940e8ebcba260757ce56740b",
+          "size": 7859
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging/licenses/__pycache__/__init__.cpython-313.pyc",
+          "relative": "packaging/licenses/__pycache__/__init__.cpython-313.pyc",
+          "sha256": "c348513d8f9e5e5a7792cb79634337e32d1d47b80123840a5109246d44422c0c",
+          "size": 5916
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging/licenses/__pycache__/_spdx.cpython-313.pyc",
+          "relative": "packaging/licenses/__pycache__/_spdx.cpython-313.pyc",
+          "sha256": "b39e7908633d7a67a2ab1530752fdaedc6944d96e7c6378842ba67b65b6609f4",
+          "size": 49939
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/packaging/licenses/_spdx.py",
+          "relative": "packaging/licenses/_spdx.py",
+          "sha256": "596ec35e2ca0ebcba9fd8343ff0a51625af548786257815f24b41f7e08613314",
+          "size": 51122
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "pip",
+      "version": "26.2.1",
+      "ecosystem": "PyPI",
+      "dependency_category": "development",
+      "scope": "build_environment",
+      "functional_role": "Package installer tool",
+      "declared_license": "MIT",
+      "concluded_license": "MIT",
+      "confidence": "HIGH",
+      "author_supplier": "The pip developers <distutils-sig@python.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/METADATA",
+      "metadata_file_sha256": "3a561005822841f2c45f442f6c7a7505172c8c376c9fe274d876c8ac912968cb",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/AUTHORS.txt",
+          "relative": "pip-26.2.1.dist-info/licenses/AUTHORS.txt",
+          "sha256": "4eb1fb1705e2def898e81bcba19c3aac80620d27ba3569d6a6df7b4629d1b5c2",
+          "size": 12139
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/LICENSE.txt",
+          "relative": "pip-26.2.1.dist-info/licenses/LICENSE.txt",
+          "sha256": "634300a669d49aeae65b12c6c48c924c51a4cdf3d1ff086dc3456dc8bcaa2104",
+          "size": 1093
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/cachecontrol/LICENSE.txt",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/cachecontrol/LICENSE.txt",
+          "sha256": "86eeee87be2a43f3ff1f56496f451f69243926f025fedbb033666c304c4c161b",
+          "size": 558
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/certifi/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/certifi/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+          "size": 989
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/distlib/LICENSE.txt",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/distlib/LICENSE.txt",
+          "sha256": "808e10c8a6ab8deb149ff9b3fb19f447a808094606d712a9ca57fead3552599d",
+          "size": 14531
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/distro/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/distro/LICENSE",
+          "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14",
+          "size": 11325
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/idna/LICENSE.md",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/idna/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04",
+          "size": 1541
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/msgpack/COPYING",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/msgpack/COPYING",
+          "sha256": "492dedba85da5872f78e6091bcd1fea474d660d35acb4dee964b8aab3f007427",
+          "size": 614
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/packaging/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/packaging/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "size": 197
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/packaging/LICENSE.APACHE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/packaging/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "size": 10174
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/packaging/LICENSE.BSD",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/packaging/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "size": 1344
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/pkg_resources/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/pkg_resources/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "size": 1023
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/platformdirs/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/platformdirs/LICENSE",
+          "sha256": "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+          "size": 1089
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/pygments/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/pygments/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "size": 1331
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/pyproject_hooks/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/pyproject_hooks/LICENSE",
+          "sha256": "1b22b049b5267d6dfc23a67bf4a84d8ec04b9fdfb1a51d360e42b4342c8b4154",
+          "size": 1081
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/requests/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/requests/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+          "size": 10142
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/resolvelib/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/resolvelib/LICENSE",
+          "sha256": "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d",
+          "size": 751
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/rich/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/rich/LICENSE",
+          "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+          "size": 1056
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/tomli/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/tomli/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "size": 1072
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/tomli_w/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/tomli_w/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "size": 1072
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/truststore/LICENSE",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/truststore/LICENSE",
+          "sha256": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca",
+          "size": 1086
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip-26.2.1.dist-info/licenses/src/pip/_vendor/urllib3/LICENSE.txt",
+          "relative": "pip-26.2.1.dist-info/licenses/src/pip/_vendor/urllib3/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+          "size": 1093
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/cachecontrol/LICENSE.txt",
+          "relative": "pip/_vendor/cachecontrol/LICENSE.txt",
+          "sha256": "86eeee87be2a43f3ff1f56496f451f69243926f025fedbb033666c304c4c161b",
+          "size": 558
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/certifi/LICENSE",
+          "relative": "pip/_vendor/certifi/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+          "size": 989
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/distlib/LICENSE.txt",
+          "relative": "pip/_vendor/distlib/LICENSE.txt",
+          "sha256": "808e10c8a6ab8deb149ff9b3fb19f447a808094606d712a9ca57fead3552599d",
+          "size": 14531
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/distro/LICENSE",
+          "relative": "pip/_vendor/distro/LICENSE",
+          "sha256": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14",
+          "size": 11325
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/idna/LICENSE.md",
+          "relative": "pip/_vendor/idna/LICENSE.md",
+          "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04",
+          "size": 1541
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/msgpack/COPYING",
+          "relative": "pip/_vendor/msgpack/COPYING",
+          "sha256": "492dedba85da5872f78e6091bcd1fea474d660d35acb4dee964b8aab3f007427",
+          "size": 614
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/LICENSE",
+          "relative": "pip/_vendor/packaging/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "size": 197
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/LICENSE.APACHE",
+          "relative": "pip/_vendor/packaging/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "size": 10174
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/LICENSE.BSD",
+          "relative": "pip/_vendor/packaging/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "size": 1344
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/licenses/__init__.py",
+          "relative": "pip/_vendor/packaging/licenses/__init__.py",
+          "sha256": "fc9c745d1883ff9f296a5b169f22eb2ee879f59a4608f20f5cb29d668f4e26f4",
+          "size": 7293
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/licenses/__pycache__/__init__.cpython-313.pyc",
+          "relative": "pip/_vendor/packaging/licenses/__pycache__/__init__.cpython-313.pyc",
+          "sha256": "a8b441c65a59aa119bdf100856f7f41438a5c6713d2c093d364a10574089bd34",
+          "size": 5569
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/licenses/__pycache__/_spdx.cpython-313.pyc",
+          "relative": "pip/_vendor/packaging/licenses/__pycache__/_spdx.cpython-313.pyc",
+          "sha256": "570aed37d62f8669e1477902a61c4ef925094f1b0b1bcfa832167a2d0d4d7e3f",
+          "size": 49951
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/packaging/licenses/_spdx.py",
+          "relative": "pip/_vendor/packaging/licenses/_spdx.py",
+          "sha256": "596ec35e2ca0ebcba9fd8343ff0a51625af548786257815f24b41f7e08613314",
+          "size": 51122
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/pkg_resources/LICENSE",
+          "relative": "pip/_vendor/pkg_resources/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "size": 1023
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/platformdirs/LICENSE",
+          "relative": "pip/_vendor/platformdirs/LICENSE",
+          "sha256": "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+          "size": 1089
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/pygments/LICENSE",
+          "relative": "pip/_vendor/pygments/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "size": 1331
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/pyproject_hooks/LICENSE",
+          "relative": "pip/_vendor/pyproject_hooks/LICENSE",
+          "sha256": "1b22b049b5267d6dfc23a67bf4a84d8ec04b9fdfb1a51d360e42b4342c8b4154",
+          "size": 1081
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/requests/LICENSE",
+          "relative": "pip/_vendor/requests/LICENSE",
+          "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+          "size": 10142
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/resolvelib/LICENSE",
+          "relative": "pip/_vendor/resolvelib/LICENSE",
+          "sha256": "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d",
+          "size": 751
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/rich/LICENSE",
+          "relative": "pip/_vendor/rich/LICENSE",
+          "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+          "size": 1056
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/tomli/LICENSE",
+          "relative": "pip/_vendor/tomli/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "size": 1072
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/tomli_w/LICENSE",
+          "relative": "pip/_vendor/tomli_w/LICENSE",
+          "sha256": "b80816b0d530b8accb4c2211783790984a6e3b61922c2b5ee92f3372ab2742fe",
+          "size": 1072
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/truststore/LICENSE",
+          "relative": "pip/_vendor/truststore/LICENSE",
+          "sha256": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca",
+          "size": 1086
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pip/_vendor/urllib3/LICENSE.txt",
+          "relative": "pip/_vendor/urllib3/LICENSE.txt",
+          "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+          "size": 1093
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "pluggy",
+      "version": "1.7.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "dev_test",
+      "functional_role": "Plugin framework for pytest",
+      "declared_license": "MIT",
+      "concluded_license": "MIT",
+      "confidence": "HIGH",
+      "author_supplier": "Holger Krekel",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pluggy-1.7.0.dist-info/METADATA",
+      "metadata_file_sha256": "20ac8237e37f1d6e7e75500cd663015177ba80c1a1a595ff6bae18a539ff8a2c",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pluggy-1.7.0.dist-info/licenses/LICENSE",
+          "relative": "pluggy-1.7.0.dist-info/licenses/LICENSE",
+          "sha256": "d6b65e6c213a5d0b577911d34d6e5949b9f59d76c238c5071a2f3fc16cfb2606",
+          "size": 1110
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "pytest",
+      "version": "9.1.1",
+      "ecosystem": "PyPI",
+      "dependency_category": "development",
+      "scope": "dev_test",
+      "functional_role": "Unit test runner & framework",
+      "declared_license": "MIT",
+      "concluded_license": "MIT",
+      "confidence": "HIGH",
+      "author_supplier": "Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pytest-9.1.1.dist-info/METADATA",
+      "metadata_file_sha256": "c5d032518012789cabc870d46589aca3aeda36cf9fa4399ee88bda3d10438451",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pytest-9.1.1.dist-info/licenses/LICENSE",
+          "relative": "pytest-9.1.1.dist-info/licenses/LICENSE",
+          "sha256": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b",
+          "size": 1091
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "pytest-cov",
+      "version": "7.1.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "development",
+      "scope": "dev_test",
+      "functional_role": "Pytest coverage measurement plugin",
+      "declared_license": "MIT",
+      "concluded_license": "MIT",
+      "confidence": "HIGH",
+      "author_supplier": "Marc Schlaich <marc.schlaich@gmail.com>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pytest_cov-7.1.0.dist-info/METADATA",
+      "metadata_file_sha256": "d670e42439ea5a87c46d5659cfcbf64e29aaf7da3aca69dc03eecdafe7e4894c",
+      "license_files": [
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pytest_cov-7.1.0.dist-info/licenses/AUTHORS.rst",
+          "relative": "pytest_cov-7.1.0.dist-info/licenses/AUTHORS.rst",
+          "sha256": "d7390c793c73c36265497ffac90a886a235c8b50948454c9af98f1aef2a00d2a",
+          "size": 3128
+        },
+        {
+          "path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/pytest_cov-7.1.0.dist-info/licenses/LICENSE",
+          "relative": "pytest_cov-7.1.0.dist-info/licenses/LICENSE",
+          "sha256": "835586ae156766a24e3c103fbc55d9af6b1a16df57ca932c97482a2737fd83d5",
+          "size": 1071
+        }
+      ],
+      "distribution_status": "Excluded from Distribution (Dev/Test)"
+    },
+    {
+      "name": "shiboken6",
+      "version": "6.12.0",
+      "ecosystem": "PyPI",
+      "dependency_category": "transitive",
+      "scope": "optional_gui",
+      "functional_role": "CPython binding generator & runtime library",
+      "declared_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "concluded_license": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "confidence": "HIGH",
+      "author_supplier": "Qt for Python Team <pyside@qt-project.org>",
+      "evidence_source": "dist-info METADATA",
+      "metadata_file_path": "/home/emorphi/Desktop/netF/itsa-network-os/.venv/lib/python3.13/site-packages/shiboken6-6.12.0.dist-info/METADATA",
+      "metadata_file_sha256": "586ac5f74d295853db808e93852887297b813f133ce13df319c8f3ee0ffaa417",
+      "license_files": [],
+      "distribution_status": "Shippable (Optional GUI)"
+    }
+  ],
+  "verified_host_system_packages": [
+    {
+      "name": "iproute2",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "Linux network stack utilities (ip addr, ip route)",
+      "invoked_by": [
+        "routes.py",
+        "inspector.py"
+      ],
+      "concluded_license": "GPL-2.0-only",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/iproute2/copyright",
+      "evidence_sha256": "344ddcf4dfe65b86416e058309218b4ac1ee7bc1e624cc40ad87222cc979fdac",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "iputils-ping",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "ICMP ping utilities",
+      "invoked_by": [
+        "None in app core (mocked/TCP latency)"
+      ],
+      "concluded_license": "GPL-2.0-or-later AND BSD-3-Clause",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/iputils-ping/copyright",
+      "evidence_sha256": "7b81610874d5b35eead7bf8bd1267d2210ac1c6078ac78561309f8fe9f6d7050",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "traceroute",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "Route tracing utility",
+      "invoked_by": [
+        "None in app core (mocked)"
+      ],
+      "concluded_license": "GPL-2.0-or-later AND LGPL-2.1-or-later",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/traceroute/copyright",
+      "evidence_sha256": "ed62b8662d68d192410f988e16c437f4cf2134c09f9d78d0beb61d398bb587df",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "curl",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "Command-line HTTP/REST client tool",
+      "invoked_by": [
+        "None in app core"
+      ],
+      "concluded_license": "curl AND ISC",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/curl/copyright",
+      "evidence_sha256": "e1b7678c8443b4f8ac69350e1eefd6132339b010cc3b870675fec0c0c29779a5",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "iptables",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "IPv4/IPv6 packet filtering administration",
+      "invoked_by": [
+        "None in app core"
+      ],
+      "concluded_license": "GPL-2.0-only",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/iptables/copyright",
+      "evidence_sha256": "1f222344466008db3d978986ddf49e088473c807073d5d36a0d0768c54effd95",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "nftables",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "Kernel packet classification framework",
+      "invoked_by": [
+        "None in app core"
+      ],
+      "concluded_license": "GPL-2.0-only",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/nftables/copyright",
+      "evidence_sha256": "ede1a9831433483bf9ce57f46af958ff7591799aff8fdff1368a8a4cf2323996",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "ca-certificates",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "Common CA certificates for TLS verification",
+      "invoked_by": [
+        "tls.py (X.509 verification)"
+      ],
+      "concluded_license": "MPL-2.0 AND GPL-2.0-or-later",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/ca-certificates/copyright",
+      "evidence_sha256": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "python3",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "System Python 3.13 interpreter",
+      "invoked_by": [
+        "Application runtime"
+      ],
+      "concluded_license": "PSF-2.0",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/python3/copyright",
+      "evidence_sha256": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    },
+    {
+      "name": "systemd",
+      "version": "Debian 13 (Trixie) System Package",
+      "ecosystem": "Debian",
+      "dependency_category": "system_dependency",
+      "scope": "host_system",
+      "functional_role": "System and service manager / journald",
+      "invoked_by": [
+        "System init"
+      ],
+      "concluded_license": "LGPL-2.1-or-later AND GPL-2.0-only",
+      "confidence": "HIGH",
+      "evidence_source": "/usr/share/doc/systemd/copyright",
+      "evidence_sha256": "a79e4b379cabbd960bb44f6cc1a069081a3778c59a25ee529b68df5a2cb7d27d",
+      "verification_status": "VERIFIED_ON_HOST",
+      "distribution_status": "Host System Component"
+    }
+  ],
+  "declared_iso_chroot_packages": [
+    {
+      "name": "live-boot",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "live-config",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "live-config-systemd",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "user-setup",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "sudo",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "systemd-sysv",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "dbus",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "locales",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "xorg",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "xfce4",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Lightweight desktop environment for Live ISO",
+      "concluded_license": "GPL-2.0-or-later",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "xfce4-terminal",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "lightdm",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Display manager / desktop login greeter",
+      "concluded_license": "GPL-3.0-or-later AND LGPL-2.0-or-later",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "python3-pip",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "python3-venv",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "python3-setuptools",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "python3-wheel",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "libgl1",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "libegl1",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "libxkbcommon0",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "libfontconfig1",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "libdbus-1-3",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Debian Live ISO system package",
+      "concluded_license": "NOASSERTION",
+      "confidence": "LOW (Manifest entry only; uninspected)",
+      "unresolved_issue": null,
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "dnsutils",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "DNS lookup utilities (dig, nslookup)",
+      "concluded_license": "MPL-2.0",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "ethtool",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Network interface hardware & driver query utility",
+      "concluded_license": "GPL-2.0-only",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "tcpdump",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Command-line packet capture utility",
+      "concluded_license": "BSD-3-Clause",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "net-tools",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Legacy networking utilities (arp, route, netstat)",
+      "concluded_license": "GPL-2.0-only",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "sqlite3",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "SQLite command-line interface tool",
+      "concluded_license": "Blessing / Public Domain",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "nmap",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Network exploration tool & security scanner (Live ISO desktop utility)",
+      "concluded_license": "NPSL (Nmap Public Source License)",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "LIC-001: Commercial aggregation vs. derivative work restrictions under NPSL",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    },
+    {
+      "name": "tshark",
+      "version": "Debian 13 (Trixie) Candidate",
+      "ecosystem": "Debian",
+      "dependency_category": "distribution_dependency",
+      "scope": "live_iso_chroot",
+      "functional_role": "Terminal network traffic analyzer / Wireshark dissector",
+      "concluded_license": "GPL-2.0-or-later",
+      "confidence": "MEDIUM (Documented in LICENSES.md; unverified on host)",
+      "unresolved_issue": "None (External binary execution only)",
+      "evidence_source": "debian-live/config/package-lists/itsa.list.chroot",
+      "verification_status": "UNVERIFIED_CHROOT_DECLARATION",
+      "distribution_status": "Planned Distribution Manifest (Unbuilt)"
+    }
+  ],
+  "unresolved_licensing_issues": [
+    {
+      "issue_id": "LIC-001",
+      "title": "Nmap Public Source License (NPSL) Commercial Redistribution Analysis",
+      "component": "nmap",
+      "declared_license": "NPSL",
+      "context": "nmap is listed in debian-live/config/package-lists/itsa.list.chroot for live ISO distribution. The core application (src/itsa_network_os/) does not invoke, link, or depend on nmap. However, bundling nmap on a commercial Live ISO alongside proprietary add-ons requires legal review to ensure it constitutes mere aggregation rather than a derivative product under NPSL terms.",
+      "recommendation": "Submit for qualified intellectual property counsel review before compiling commercial installation ISOs."
+    },
+    {
+      "issue_id": "LIC-002",
+      "title": "Debian Non-Free Firmware Redistribution Verification",
+      "component": "non-free-firmware",
+      "declared_license": "Proprietary / Vendor EULA",
+      "context": "Debian 13 Live ISO configurations include non-free-firmware for physical hardware Wi-Fi/NIC driver support. Certain vendor firmware blobs grant redistribution only under strict binary-unmodified conditions.",
+      "recommendation": "Verify explicit redistribution grants for all included firmware packages during ISO build verification (TASK-017)."
+    }
+  ]
+}

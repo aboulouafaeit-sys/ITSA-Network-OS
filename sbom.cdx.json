@@ -1,0 +1,560 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:962d7554-46e5-4f0e-a728-321e56695f9b",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-29T17:42:00Z",
+    "tools": [
+      {
+        "vendor": "ITSA Network OS Maintainers",
+        "name": "itsa-compliance-tools",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "bom-ref": "pkg:app/itsa-network-os@0.1.0",
+      "type": "application",
+      "name": "itsa-network-os",
+      "version": "0.1.0",
+      "description": "Modular network engineering and cybersecurity platform for Debian.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/pyside6@6.12.0",
+      "type": "library",
+      "name": "PySide6",
+      "version": "6.12.0",
+      "scope": "optional",
+      "description": "Desktop GUI Framework (Optional)",
+      "purl": "pkg:pypi/pyside6@6.12.0",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "efb12d59c176496ae09491d7240e6ddf3914df036c97680918354b15e632612d"
+        }
+      ],
+      "author": "Qt for Python Team <pyside@qt-project.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyside6_addons@6.12.0",
+      "type": "library",
+      "name": "PySide6_Addons",
+      "version": "6.12.0",
+      "scope": "optional",
+      "description": "Additional Qt 6 C++ module bindings",
+      "purl": "pkg:pypi/pyside6_addons@6.12.0",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e0a7d8ea2a767aa884877f7a5a18e60b9e0207e4e35e7df037a5beff285b9190"
+        }
+      ],
+      "author": "Qt for Python Team <pyside@qt-project.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyside6_essentials@6.12.0",
+      "type": "library",
+      "name": "PySide6_Essentials",
+      "version": "6.12.0",
+      "scope": "optional",
+      "description": "Core Qt 6 C++ bindings & modules",
+      "purl": "pkg:pypi/pyside6_essentials@6.12.0",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "68a36226bc8fdd63b54c51f35e8f52226e2e263881a102b23400056e2e689e60"
+        }
+      ],
+      "author": "Qt for Python Team <pyside@qt-project.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyside6_pdf@6.12.0.140",
+      "type": "library",
+      "name": "PySide6_Pdf",
+      "version": "6.12.0.140",
+      "scope": "optional",
+      "description": "Qt PDF module bindings",
+      "purl": "pkg:pypi/pyside6_pdf@6.12.0.140",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "69a4a5ee41ac0c99bcf843077dc0204afb316607529bebfe1fca780d65f3c4a4"
+        }
+      ],
+      "author": "Qt for Python Team <pyside@qt-project.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pyside6_webengine@6.12.0.140",
+      "type": "library",
+      "name": "PySide6_WebEngine",
+      "version": "6.12.0.140",
+      "scope": "optional",
+      "description": "Chromium WebEngine bindings (Installed with PySide6 wheel)",
+      "purl": "pkg:pypi/pyside6_webengine@6.12.0.140",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fc5dcfe71500c959686674e9e8ff9fca95451a1a5781fa3f6465262e5c22cafb"
+        }
+      ],
+      "author": "Qt for Python Team <pyside@qt-project.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pygments@2.21.0",
+      "type": "library",
+      "name": "Pygments",
+      "version": "2.21.0",
+      "scope": "excluded",
+      "description": "Syntax highlighter (pytest dependency)",
+      "purl": "pkg:pypi/pygments@2.21.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-2-Clause"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1dde075570136774c706bf0009183a793fe0ee262e4a5590cc6eff8453eedd43"
+        }
+      ],
+      "author": "Georg Brandl <georg@python.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/coverage@7.16.2",
+      "type": "library",
+      "name": "coverage",
+      "version": "7.16.2",
+      "scope": "excluded",
+      "description": "Code coverage engine",
+      "purl": "pkg:pypi/coverage@7.16.2",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a5447449aa5b0b5a8b7c6a800434623a70c316750fcdde7ebd5b0b41fe756f99"
+        }
+      ],
+      "author": "Ned Batchelder and 263 others"
+    },
+    {
+      "bom-ref": "pkg:pypi/iniconfig@2.3.1",
+      "type": "library",
+      "name": "iniconfig",
+      "version": "2.3.1",
+      "scope": "excluded",
+      "description": "INI parser for pytest",
+      "purl": "pkg:pypi/iniconfig@2.3.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "47c2c35d936f5c649d8074c6464719a42966a67b5cebad01e3e5784cf090cfb6"
+        }
+      ],
+      "author": "Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>, Holger Krekel <holger.krekel@gmail.com>"
+    },
+    {
+      "bom-ref": "pkg:pypi/packaging@26.3",
+      "type": "library",
+      "name": "packaging",
+      "version": "26.3",
+      "scope": "excluded",
+      "description": "Core packaging version parsing utilities",
+      "purl": "pkg:pypi/packaging@26.3",
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR BSD-2-Clause"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "70fdb89fc4d4a9a043bf7372b8972bcc883fddff34ab55e9cf80d73875384763"
+        }
+      ],
+      "author": "Donald Stufft <donald@stufft.io>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pip@26.2.1",
+      "type": "library",
+      "name": "pip",
+      "version": "26.2.1",
+      "scope": "required",
+      "description": "Package installer tool",
+      "purl": "pkg:pypi/pip@26.2.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3a561005822841f2c45f442f6c7a7505172c8c376c9fe274d876c8ac912968cb"
+        }
+      ],
+      "author": "The pip developers <distutils-sig@python.org>"
+    },
+    {
+      "bom-ref": "pkg:pypi/pluggy@1.7.0",
+      "type": "library",
+      "name": "pluggy",
+      "version": "1.7.0",
+      "scope": "excluded",
+      "description": "Plugin framework for pytest",
+      "purl": "pkg:pypi/pluggy@1.7.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "20ac8237e37f1d6e7e75500cd663015177ba80c1a1a595ff6bae18a539ff8a2c"
+        }
+      ],
+      "author": "Holger Krekel"
+    },
+    {
+      "bom-ref": "pkg:pypi/pytest@9.1.1",
+      "type": "library",
+      "name": "pytest",
+      "version": "9.1.1",
+      "scope": "excluded",
+      "description": "Unit test runner & framework",
+      "purl": "pkg:pypi/pytest@9.1.1",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "c5d032518012789cabc870d46589aca3aeda36cf9fa4399ee88bda3d10438451"
+        }
+      ],
+      "author": "Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt"
+    },
+    {
+      "bom-ref": "pkg:pypi/pytest-cov@7.1.0",
+      "type": "library",
+      "name": "pytest-cov",
+      "version": "7.1.0",
+      "scope": "excluded",
+      "description": "Pytest coverage measurement plugin",
+      "purl": "pkg:pypi/pytest-cov@7.1.0",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d670e42439ea5a87c46d5659cfcbf64e29aaf7da3aca69dc03eecdafe7e4894c"
+        }
+      ],
+      "author": "Marc Schlaich <marc.schlaich@gmail.com>"
+    },
+    {
+      "bom-ref": "pkg:pypi/shiboken6@6.12.0",
+      "type": "library",
+      "name": "shiboken6",
+      "version": "6.12.0",
+      "scope": "optional",
+      "description": "CPython binding generator & runtime library",
+      "purl": "pkg:pypi/shiboken6@6.12.0",
+      "licenses": [
+        {
+          "expression": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "586ac5f74d295853db808e93852887297b813f133ce13df319c8f3ee0ffaa417"
+        }
+      ],
+      "author": "Qt for Python Team <pyside@qt-project.org>"
+    },
+    {
+      "bom-ref": "pkg:deb/debian/iproute2@debian13",
+      "type": "operating-system",
+      "name": "iproute2",
+      "version": "debian13",
+      "scope": "required",
+      "description": "Linux network stack utilities (ip addr, ip route)",
+      "purl": "pkg:deb/debian/iproute2@debian13",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-2.0-only"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "344ddcf4dfe65b86416e058309218b4ac1ee7bc1e624cc40ad87222cc979fdac"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/iputils-ping@debian13",
+      "type": "operating-system",
+      "name": "iputils-ping",
+      "version": "debian13",
+      "scope": "required",
+      "description": "ICMP ping utilities",
+      "purl": "pkg:deb/debian/iputils-ping@debian13",
+      "licenses": [
+        {
+          "expression": "GPL-2.0-or-later AND BSD-3-Clause"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7b81610874d5b35eead7bf8bd1267d2210ac1c6078ac78561309f8fe9f6d7050"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/traceroute@debian13",
+      "type": "operating-system",
+      "name": "traceroute",
+      "version": "debian13",
+      "scope": "required",
+      "description": "Route tracing utility",
+      "purl": "pkg:deb/debian/traceroute@debian13",
+      "licenses": [
+        {
+          "expression": "GPL-2.0-or-later AND LGPL-2.1-or-later"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ed62b8662d68d192410f988e16c437f4cf2134c09f9d78d0beb61d398bb587df"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/curl@debian13",
+      "type": "operating-system",
+      "name": "curl",
+      "version": "debian13",
+      "scope": "required",
+      "description": "Command-line HTTP/REST client tool",
+      "purl": "pkg:deb/debian/curl@debian13",
+      "licenses": [
+        {
+          "expression": "curl AND ISC"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e1b7678c8443b4f8ac69350e1eefd6132339b010cc3b870675fec0c0c29779a5"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/iptables@debian13",
+      "type": "operating-system",
+      "name": "iptables",
+      "version": "debian13",
+      "scope": "required",
+      "description": "IPv4/IPv6 packet filtering administration",
+      "purl": "pkg:deb/debian/iptables@debian13",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-2.0-only"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "1f222344466008db3d978986ddf49e088473c807073d5d36a0d0768c54effd95"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/nftables@debian13",
+      "type": "operating-system",
+      "name": "nftables",
+      "version": "debian13",
+      "scope": "required",
+      "description": "Kernel packet classification framework",
+      "purl": "pkg:deb/debian/nftables@debian13",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-2.0-only"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ede1a9831433483bf9ce57f46af958ff7591799aff8fdff1368a8a4cf2323996"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/ca-certificates@debian13",
+      "type": "operating-system",
+      "name": "ca-certificates",
+      "version": "debian13",
+      "scope": "required",
+      "description": "Common CA certificates for TLS verification",
+      "purl": "pkg:deb/debian/ca-certificates@debian13",
+      "licenses": [
+        {
+          "expression": "MPL-2.0 AND GPL-2.0-or-later"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/python3@debian13",
+      "type": "operating-system",
+      "name": "python3",
+      "version": "debian13",
+      "scope": "required",
+      "description": "System Python 3.13 interpreter",
+      "purl": "pkg:deb/debian/python3@debian13",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:deb/debian/systemd@debian13",
+      "type": "operating-system",
+      "name": "systemd",
+      "version": "debian13",
+      "scope": "required",
+      "description": "System and service manager / journald",
+      "purl": "pkg:deb/debian/systemd@debian13",
+      "licenses": [
+        {
+          "expression": "LGPL-2.1-or-later AND GPL-2.0-only"
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a79e4b379cabbd960bb44f6cc1a069081a3778c59a25ee529b68df5a2cb7d27d"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "pkg:app/itsa-network-os@0.1.0",
+      "dependsOn": [
+        "pkg:pypi/pyside6@6.12.0",
+        "pkg:deb/debian/iproute2@debian13",
+        "pkg:deb/debian/iputils-ping@debian13",
+        "pkg:deb/debian/traceroute@debian13",
+        "pkg:deb/debian/curl@debian13",
+        "pkg:deb/debian/iptables@debian13",
+        "pkg:deb/debian/nftables@debian13",
+        "pkg:deb/debian/ca-certificates@debian13",
+        "pkg:deb/debian/python3@debian13",
+        "pkg:deb/debian/systemd@debian13"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/pyside6@6.12.0",
+      "dependsOn": [
+        "pkg:pypi/pyside6_essentials@6.12.0",
+        "pkg:pypi/pyside6_addons@6.12.0",
+        "pkg:pypi/pyside6_webengine@6.12.0.140",
+        "pkg:pypi/pyside6_pdf@6.12.0.140"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/pyside6_essentials@6.12.0",
+      "dependsOn": [
+        "pkg:pypi/shiboken6@6.12.0"
+      ]
+    }
+  ]
+}

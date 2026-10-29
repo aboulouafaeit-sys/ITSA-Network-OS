@@ -1,0 +1,561 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "ITSA-Network-OS-0.1.0",
+  "documentNamespace": "https://spdx.org/spdxdocs/itsa-network-os-0.1.0-962d7554-46e5-4f0e-a728-321e56695f9b",
+  "creationInfo": {
+    "creators": [
+      "Tool: itsa-compliance-tools-1.0.0",
+      "Organization: ITSA Network OS Maintainers"
+    ],
+    "created": "2026-10-29T17:42:00Z",
+    "comment": "SPDX 2.3 software bill of materials generated from local package metadata and verified evidence (TASK-018)."
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-itsa-network-os",
+      "name": "itsa-network-os",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: ITSA Network OS Maintainers",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "Copyright (c) 2026 ITSA Network OS Maintainers",
+      "summary": "Modular network engineering and cybersecurity platform for Debian.",
+      "comment": "Root application repository. Core diagnostics require standard library only; desktop GUI requires PySide6 optionally."
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-PySide6",
+      "name": "PySide6",
+      "versionInfo": "6.12.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Qt for Python Team <pyside@qt-project.org>",
+      "licenseConcluded": "(LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only)",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: declared_direct, Scope: optional_gui, Role: Desktop GUI Framework (Optional). Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "efb12d59c176496ae09491d7240e6ddf3914df036c97680918354b15e632612d"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-PySide6-Addons",
+      "name": "PySide6_Addons",
+      "versionInfo": "6.12.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Qt for Python Team <pyside@qt-project.org>",
+      "licenseConcluded": "(LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only)",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: optional_gui, Role: Additional Qt 6 C++ module bindings. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e0a7d8ea2a767aa884877f7a5a18e60b9e0207e4e35e7df037a5beff285b9190"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-PySide6-Essentials",
+      "name": "PySide6_Essentials",
+      "versionInfo": "6.12.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Qt for Python Team <pyside@qt-project.org>",
+      "licenseConcluded": "(LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only)",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: optional_gui, Role: Core Qt 6 C++ bindings & modules. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "68a36226bc8fdd63b54c51f35e8f52226e2e263881a102b23400056e2e689e60"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-PySide6-Pdf",
+      "name": "PySide6_Pdf",
+      "versionInfo": "6.12.0.140",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Qt for Python Team <pyside@qt-project.org>",
+      "licenseConcluded": "(LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only)",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: optional_gui, Role: Qt PDF module bindings. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "69a4a5ee41ac0c99bcf843077dc0204afb316607529bebfe1fca780d65f3c4a4"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-PySide6-WebEngine",
+      "name": "PySide6_WebEngine",
+      "versionInfo": "6.12.0.140",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Qt for Python Team <pyside@qt-project.org>",
+      "licenseConcluded": "(LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only)",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: optional_gui, Role: Chromium WebEngine bindings (Installed with PySide6 wheel). Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "fc5dcfe71500c959686674e9e8ff9fca95451a1a5781fa3f6465262e5c22cafb"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-Pygments",
+      "name": "Pygments",
+      "versionInfo": "2.21.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Georg Brandl <georg@python.org>",
+      "licenseConcluded": "BSD-2-Clause",
+      "licenseDeclared": "BSD-2-Clause",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: dev_test, Role: Syntax highlighter (pytest dependency). Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1dde075570136774c706bf0009183a793fe0ee262e4a5590cc6eff8453eedd43"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-coverage",
+      "name": "coverage",
+      "versionInfo": "7.16.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Ned Batchelder and 263 others",
+      "licenseConcluded": "Apache-2.0",
+      "licenseDeclared": "Apache-2.0",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: dev_test, Role: Code coverage engine. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a5447449aa5b0b5a8b7c6a800434623a70c316750fcdde7ebd5b0b41fe756f99"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-iniconfig",
+      "name": "iniconfig",
+      "versionInfo": "2.3.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Ronny Pfannschmidt <opensource@ronnypfannschmidt.de>, Holger Krekel <holger.krekel@gmail.com>",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: dev_test, Role: INI parser for pytest. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "47c2c35d936f5c649d8074c6464719a42966a67b5cebad01e3e5784cf090cfb6"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-packaging",
+      "name": "packaging",
+      "versionInfo": "26.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Donald Stufft <donald@stufft.io>",
+      "licenseConcluded": "(Apache-2.0 OR BSD-2-Clause)",
+      "licenseDeclared": "Apache-2.0 OR BSD-2-Clause",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: dev_test, Role: Core packaging version parsing utilities. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "70fdb89fc4d4a9a043bf7372b8972bcc883fddff34ab55e9cf80d73875384763"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-pip",
+      "name": "pip",
+      "versionInfo": "26.2.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: The pip developers <distutils-sig@python.org>",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: development, Scope: build_environment, Role: Package installer tool. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "3a561005822841f2c45f442f6c7a7505172c8c376c9fe274d876c8ac912968cb"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-pluggy",
+      "name": "pluggy",
+      "versionInfo": "1.7.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Holger Krekel",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: dev_test, Role: Plugin framework for pytest. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "20ac8237e37f1d6e7e75500cd663015177ba80c1a1a595ff6bae18a539ff8a2c"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-pytest",
+      "name": "pytest",
+      "versionInfo": "9.1.1",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Brianna Laugher, Bruno Oliveira, Floris Bruynooghe, Freya Bruhin, Holger Krekel, Others (See AUTHORS), Ronny Pfannschmidt",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: development, Scope: dev_test, Role: Unit test runner & framework. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "c5d032518012789cabc870d46589aca3aeda36cf9fa4399ee88bda3d10438451"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-pytest-cov",
+      "name": "pytest-cov",
+      "versionInfo": "7.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Marc Schlaich <marc.schlaich@gmail.com>",
+      "licenseConcluded": "MIT",
+      "licenseDeclared": "MIT",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: development, Scope: dev_test, Role: Pytest coverage measurement plugin. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "d670e42439ea5a87c46d5659cfcbf64e29aaf7da3aca69dc03eecdafe7e4894c"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-pypi-shiboken6",
+      "name": "shiboken6",
+      "versionInfo": "6.12.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Person: Qt for Python Team <pyside@qt-project.org>",
+      "licenseConcluded": "(LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only)",
+      "licenseDeclared": "LGPL-3.0-only OR GPL-2.0-only OR GPL-3.0-only",
+      "copyrightText": "NOASSERTION",
+      "comment": "Category: transitive, Scope: optional_gui, Role: CPython binding generator & runtime library. Checksum represents dist-info METADATA file.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "586ac5f74d295853db808e93852887297b813f133ce13df319c8f3ee0ffaa417"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-iproute2",
+      "name": "iproute2",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "GPL-2.0-only",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/iproute2/copyright. Invoked by: routes.py, inspector.py.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "344ddcf4dfe65b86416e058309218b4ac1ee7bc1e624cc40ad87222cc979fdac"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-iputils-ping",
+      "name": "iputils-ping",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "(GPL-2.0-or-later AND BSD-3-Clause)",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/iputils-ping/copyright. Invoked by: None in app core (mocked/TCP latency).",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "7b81610874d5b35eead7bf8bd1267d2210ac1c6078ac78561309f8fe9f6d7050"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-traceroute",
+      "name": "traceroute",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "(GPL-2.0-or-later AND LGPL-2.1-or-later)",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/traceroute/copyright. Invoked by: None in app core (mocked).",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ed62b8662d68d192410f988e16c437f4cf2134c09f9d78d0beb61d398bb587df"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-curl",
+      "name": "curl",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "(curl AND ISC)",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/curl/copyright. Invoked by: None in app core.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e1b7678c8443b4f8ac69350e1eefd6132339b010cc3b870675fec0c0c29779a5"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-iptables",
+      "name": "iptables",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "GPL-2.0-only",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/iptables/copyright. Invoked by: None in app core.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "1f222344466008db3d978986ddf49e088473c807073d5d36a0d0768c54effd95"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-nftables",
+      "name": "nftables",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "GPL-2.0-only",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/nftables/copyright. Invoked by: None in app core.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "ede1a9831433483bf9ce57f46af958ff7591799aff8fdff1368a8a4cf2323996"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-ca-certificates",
+      "name": "ca-certificates",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "(MPL-2.0 AND GPL-2.0-or-later)",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/ca-certificates/copyright. Invoked by: tls.py (X.509 verification).",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "e85e1bcad3a915dc7e6f41412bc5bdeba275cadd817896ea0451f2140a93967c"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-python3",
+      "name": "python3",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "PSF-2.0",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/python3/copyright. Invoked by: Application runtime.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "5b274dbb44b28a54b795b9471c07ab045054d6b8a86273cb9feb632b6fd2760d"
+        }
+      ]
+    },
+    {
+      "SPDXID": "SPDXRef-Package-deb-systemd",
+      "name": "systemd",
+      "versionInfo": "Debian 13 (Trixie) System Package",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "supplier": "Organization: Debian Project",
+      "licenseConcluded": "(LGPL-2.1-or-later AND GPL-2.0-only)",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION",
+      "comment": "Host system package. Verified in /usr/share/doc/systemd/copyright. Invoked by: System init.",
+      "checksums": [
+        {
+          "algorithm": "SHA256",
+          "checksumValue": "a79e4b379cabbd960bb44f6cc1a069081a3778c59a25ee529b68df5a2cb7d27d"
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-itsa-network-os"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "OPTIONAL_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-PySide6"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-pypi-PySide6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-PySide6-Addons"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-pypi-PySide6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-PySide6-Essentials"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-pypi-PySide6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-PySide6-Pdf"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-pypi-PySide6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-PySide6-WebEngine"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-Pygments"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-coverage"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-iniconfig"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-packaging"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-pluggy"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-pytest"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "DEV_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-pytest-cov"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-pypi-PySide6",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-pypi-shiboken6"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-iproute2"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-iputils-ping"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-traceroute"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-curl"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-iptables"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-nftables"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-ca-certificates"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-python3"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-itsa-network-os",
+      "relationshipType": "RUNTIME_DEPENDENCY_OF",
+      "relatedSpdxElement": "SPDXRef-Package-deb-systemd"
+    }
+  ]
+}
