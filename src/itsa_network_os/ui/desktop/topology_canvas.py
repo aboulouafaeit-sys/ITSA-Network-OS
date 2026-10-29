@@ -246,27 +246,32 @@ class TopologyWidget(QWidget):  # type: ignore
         self.scene.selectionChanged.connect(self._on_selection_changed)
 
     def _on_selection_changed(self) -> None:
-        items = self.scene.selectedItems()
-        if not items:
-            return
+        try:
+            if not hasattr(self, "scene") or self.scene is None:
+                return
+            items = self.scene.selectedItems()
+            if not items:
+                return
 
-        selected_item = items[0]
-        node_id = selected_item.data(0)
-        if node_id:
+            selected_item = items[0]
+            node_id = selected_item.data(0)
+            if node_id:
+                for node in self.topology.nodes:
+                    if node.id == node_id:
+                        self._display_node_details(node)
+                        return
+
+            # Fallback to approximate coordinate matching if item data not set
+            rect = selected_item.boundingRect()
+            center_x = rect.x() + (rect.width() / 2)
+            center_y = rect.y() + (rect.height() / 2)
+
             for node in self.topology.nodes:
-                if node.id == node_id:
+                if abs(node.x - center_x) < 5 and abs(node.y - center_y) < 5:
                     self._display_node_details(node)
-                    return
-
-        # Fallback to approximate coordinate matching if item data not set
-        rect = selected_item.boundingRect()
-        center_x = rect.x() + (rect.width() / 2)
-        center_y = rect.y() + (rect.height() / 2)
-
-        for node in self.topology.nodes:
-            if abs(node.x - center_x) < 5 and abs(node.y - center_y) < 5:
-                self._display_node_details(node)
-                break
+                    break
+        except RuntimeError:
+            return
 
     def _display_node_details(self, node: TopologyNode) -> None:
         self.detail_title.setText(f"{node.label}")

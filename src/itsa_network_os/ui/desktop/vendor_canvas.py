@@ -38,6 +38,7 @@ from itsa_network_os.network.vendor_manager import (
     VendorManagerEngine,
     WirelessLinkTelemetry,
 )
+from itsa_network_os.ui.desktop.workers import AsyncOperationWorker, AsyncWorkerRunner
 
 
 class VendorDeviceManagerWidget(QWidget):  # type: ignore
@@ -51,6 +52,9 @@ class VendorDeviceManagerWidget(QWidget):  # type: ignore
         self.selected_device: Optional[ManagedDevice] = None
         self.active_category_filter: Optional[DeviceCategory] = None
         self.current_report: Optional[VendorDiscoveryReport] = None
+        self._request_counter: int = 0
+        self._is_discovering: bool = False
+        self._active_worker: Optional[AsyncOperationWorker] = None
 
         if not PYSIDE6_AVAILABLE:
             return
@@ -334,18 +338,67 @@ class VendorDeviceManagerWidget(QWidget):  # type: ignore
         self._apply_report(report)
 
     def start_live_discovery(self, timeout: float = 5.0) -> None:
-        """Execute explicit live passive broadcast listening."""
-        if self.app is not None:
-            report = self.app.discover_vendor_devices(
-                mode=DiscoveryMode.LIVE_PASSIVE,
-                timeout=timeout,
+        """Execute explicit live passive broadcast listening asynchronously."""
+        if self._is_discovering:
+            return
+
+        self._is_discovering = True
+        if hasattr(self, "btn_live_scan") and self.btn_live_scan is not None:
+            self.btn_live_scan.setEnabled(False)
+            self.btn_live_scan.setText("📡 Listening...")
+        self.status_banner.setText("Passively listening for broadcast announcements (MNDP & ONVIF)...")
+        self.status_banner.setStyleSheet(
+            "background-color: #161b22; color: #58a6ff; border: 1px solid #1f6feb; border-radius: 6px; padding: 8px 12px; font-size: 12px;"
+        )
+
+        target_func = self.app.discover_vendor_devices if self.app is not None else VendorManagerEngine.discover_devices
+
+        self._request_counter += 1
+        req_id = self._request_counter
+
+        worker = AsyncOperationWorker(req_id, target_func, mode=DiscoveryMode.LIVE_PASSIVE, timeout=timeout)
+        self._active_worker = worker
+
+        AsyncWorkerRunner.launch(
+            worker,
+            on_finished=self._on_live_discovery_finished,
+            on_failed=self._on_live_discovery_failed,
+        )
+
+    def _on_live_discovery_finished(self, req_id: int, report: Any) -> None:
+        """Handle completed live discovery report on GUI thread."""
+        if req_id != self._request_counter:
+            return
+
+        try:
+            if not hasattr(self, "btn_live_scan") or self.btn_live_scan is None:
+                return
+
+            self._is_discovering = False
+            self.btn_live_scan.setEnabled(True)
+            self.btn_live_scan.setText("📡 Start Live Passive Discovery")
+            self._apply_report(report)
+        except RuntimeError:
+            return
+
+    def _on_live_discovery_failed(self, req_id: int, error_msg: str) -> None:
+        """Handle live discovery failure on GUI thread."""
+        if req_id != self._request_counter:
+            return
+
+        try:
+            if not hasattr(self, "btn_live_scan") or self.btn_live_scan is None:
+                return
+
+            self._is_discovering = False
+            self.btn_live_scan.setEnabled(True)
+            self.btn_live_scan.setText("📡 Start Live Passive Discovery")
+            self.status_banner.setText(f"Live discovery failed: {error_msg}")
+            self.status_banner.setStyleSheet(
+                "background-color: #490202; color: #f85149; border: 1px solid #da3633; border-radius: 6px; padding: 8px 12px; font-size: 12px;"
             )
-        else:
-            report = VendorManagerEngine.discover_devices(
-                mode=DiscoveryMode.LIVE_PASSIVE,
-                timeout=timeout,
-            )
-        self._apply_report(report)
+        except RuntimeError:
+            return
 
     def refresh_devices(self) -> None:
         """Backwards-compatible method for reloading mock devices."""

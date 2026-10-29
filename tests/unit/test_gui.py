@@ -118,6 +118,12 @@ class TestDesktopGUI(unittest.TestCase):
             )
             with patch.object(app, "discover_vendor_devices", return_value=quiet_report) as mock_disc:
                 widget.btn_live_scan.click()
+                for _ in range(50):
+                    if widget.btn_live_scan.isEnabled():
+                        break
+                    qt_app.processEvents()
+                    import time
+                    time.sleep(0.01)
                 mock_disc.assert_called_once_with(mode=DiscoveryMode.LIVE_PASSIVE, timeout=5.0)
 
             self.assertIn("LIVE PASSIVE (QUIET NETWORK - 0 DEVICES)", widget.lbl_provenance_badge.text())
@@ -139,6 +145,12 @@ class TestDesktopGUI(unittest.TestCase):
             )
             with patch.object(app, "discover_vendor_devices", return_value=failed_report):
                 widget.btn_live_scan.click()
+                for _ in range(50):
+                    if widget.btn_live_scan.isEnabled():
+                        break
+                    qt_app.processEvents()
+                    import time
+                    time.sleep(0.01)
 
             self.assertIn("LIVE DISCOVERY FAILED", widget.lbl_provenance_badge.text())
             self.assertIn("Socket permission denied", widget.status_banner.text())

@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 import shutil
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -112,6 +113,11 @@ class ActiveThreadRegistry:
             return len(cls._active_threads)
 
     @classmethod
+    def active_count(cls) -> int:
+        """Alias for count() for backwards compatibility."""
+        return cls.count()
+
+    @classmethod
     def get_tracked_threads(cls) -> List[Any]:
         """List of all currently registered thread instances."""
         with cls._lock:
@@ -127,6 +133,36 @@ class ActiveThreadRegistry:
             ]
             for tid in finished_ids:
                 cls._active_threads.pop(tid, None)
+
+    @classmethod
+    def request_all_cancellation(cls) -> int:
+        """Request cooperative cancellation across all actively registered workers."""
+        count = 0
+        with cls._lock:
+            items = list(cls._active_threads.values())
+        for _, worker in items:
+            if hasattr(worker, "request_cancellation"):
+                worker.request_cancellation()
+                count += 1
+        return count
+
+    @classmethod
+    def cancel_and_wait_all(cls, timeout_ms: int = 500) -> bool:
+        """Request cancellation on all workers and wait up to timeout_ms for threads to finish."""
+        cls.request_all_cancellation()
+        deadline = time.time() + (timeout_ms / 1000.0)
+        with cls._lock:
+            threads = [t for t, _ in cls._active_threads.values()]
+
+        all_finished = True
+        for t in threads:
+            remaining_ms = max(1, int((deadline - time.time()) * 1000))
+            if hasattr(t, "isRunning") and t.isRunning():
+                if hasattr(t, "wait"):
+                    if not t.wait(remaining_ms):
+                        all_finished = False
+        cls.clear_finished()
+        return all_finished
 
 
 class WifiScanWorker(QObject):

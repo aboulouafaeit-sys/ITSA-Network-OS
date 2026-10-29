@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from PySide6.QtCore import Qt, Signal
@@ -44,6 +44,7 @@ from itsa_network_os.core.assets import (
     normalize_mac_address,
 )
 from itsa_network_os.ui.desktop.views.asset_detail_inspector import AssetDetailInspector
+from itsa_network_os.ui.desktop.workers import AsyncOperationWorker, AsyncWorkerRunner
 
 
 class AssetInventoryView(QWidget):  # type: ignore
@@ -59,13 +60,16 @@ class AssetInventoryView(QWidget):  # type: ignore
         self.displayed_assets: List[NetworkAsset] = []
         self.current_selected_asset: Optional[NetworkAsset] = None
         self.active_category_filter: Optional[AssetCategory] = None
+        self._request_counter: int = 0
+        self._is_loading: bool = False
+        self._active_worker: Optional[AsyncOperationWorker] = None
 
         self.setAccessibleName("Unified Asset Inventory View")
         self.setAccessibleDescription("Comprehensive device inventory, identity verification, and evidentiary provenance.")
 
         if PYSIDE6_AVAILABLE:
             self._init_ui()
-            self.refresh_inventory()
+            self._load_initial_inventory()
 
     def _init_ui(self) -> None:
         main_layout = QVBoxLayout(self)
@@ -179,12 +183,68 @@ class AssetInventoryView(QWidget):  # type: ignore
         splitter.setSizes([620, 450])
         main_layout.addWidget(splitter, stretch=1)
 
-    def refresh_inventory(self) -> None:
-        """Fetch latest AssetGraph from Application facade and repopulate table."""
-        self.status_banner.setText("Loading asset domain data...")
-        self.graph = self.app.get_asset_graph(refresh=True)
+    def _load_initial_inventory(self) -> None:
+        """Populate initial inventory synchronously from cached or seeded graph without extra discovery."""
+        self.graph = self.app.get_asset_graph(refresh=False)
         self.all_assets = list(self.graph.assets.values())
         self.apply_filter()
+
+    def refresh_inventory(self, refresh: bool = True) -> None:
+        """Fetch latest AssetGraph from Application facade asynchronously and repopulate table."""
+        if self._is_loading:
+            return
+
+        self._is_loading = True
+        if hasattr(self, "btn_refresh") and self.btn_refresh is not None:
+            self.btn_refresh.setEnabled(False)
+            self.btn_refresh.setText("🔄 Loading...")
+        self.status_banner.setText("Loading asset domain data...")
+
+        self._request_counter += 1
+        req_id = self._request_counter
+
+        worker = AsyncOperationWorker(req_id, self.app.get_asset_graph, refresh=refresh)
+        self._active_worker = worker
+
+        AsyncWorkerRunner.launch(
+            worker,
+            on_finished=self._on_inventory_finished,
+            on_failed=self._on_inventory_failed,
+        )
+
+    def _on_inventory_finished(self, req_id: int, graph: Any) -> None:
+        """Handle completed inventory refresh on GUI thread."""
+        if req_id != self._request_counter:
+            return
+
+        try:
+            if not hasattr(self, "btn_refresh") or self.btn_refresh is None:
+                return
+
+            self._is_loading = False
+            self.btn_refresh.setEnabled(True)
+            self.btn_refresh.setText("🔄 Refresh Inventory")
+            self.graph = graph
+            self.all_assets = list(self.graph.assets.values())
+            self.apply_filter()
+        except RuntimeError:
+            return
+
+    def _on_inventory_failed(self, req_id: int, error_msg: str) -> None:
+        """Handle inventory refresh failure on GUI thread."""
+        if req_id != self._request_counter:
+            return
+
+        try:
+            if not hasattr(self, "btn_refresh") or self.btn_refresh is None:
+                return
+
+            self._is_loading = False
+            self.btn_refresh.setEnabled(True)
+            self.btn_refresh.setText("🔄 Refresh Inventory")
+            self.status_banner.setText(f"Failed to load asset domain: {error_msg}")
+        except RuntimeError:
+            return
 
     def _on_search_text_changed(self, text: str) -> None:
         self.apply_filter()

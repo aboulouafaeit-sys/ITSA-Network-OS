@@ -30,6 +30,7 @@ except ImportError:
 
 from itsa_network_os import __app_name__, __version__
 from itsa_network_os.app import Application
+from itsa_network_os.core.health import HealthStatus, SystemHealthReport
 from itsa_network_os.ui.desktop.views import (
     AssetInventoryView,
     DNSDiagnosticsView,
@@ -41,6 +42,8 @@ from itsa_network_os.ui.desktop.views import (
     SubnetCalculatorView,
     SystemOverviewView,
 )
+from itsa_network_os.ui.desktop.workers import AsyncOperationWorker, AsyncWorkerRunner
+from itsa_network_os.ui.desktop.wifi_worker import ActiveThreadRegistry
 
 
 class MainWindow(QMainWindow):  # type: ignore
@@ -52,6 +55,8 @@ class MainWindow(QMainWindow):  # type: ignore
 
         super().__init__(parent)
         self.app = app
+        self._is_shutting_down: bool = False
+        self._health_worker_running: bool = False
         self.setWindowTitle(f"{__app_name__} — Desktop Dashboard v{__version__}")
         self.resize(1180, 780)
         self.setMinimumSize(900, 600)
@@ -120,6 +125,115 @@ class MainWindow(QMainWindow):  # type: ignore
             f"Platform: {__app_name__} v{__version__} | Privilege: Non-Root (Safe) | Database: In-Memory (Ephemeral)"
         )
 
+        # 4. Asynchronous truthful health check (TASK-P4-03)
+        self.refresh_health()
+
+    def closeEvent(self, event: Any) -> None:
+        """Cleanly cancel running workers and shut down window safely (TASK-P4-04)."""
+        if getattr(self, "_is_shutting_down", False):
+            event.accept()
+            return
+        self._is_shutting_down = True
+
+        # Cleanly stop Wi-Fi scanner if active
+        if hasattr(self, "wifi_widget") and hasattr(self.wifi_widget, "_cleanup_active_worker"):
+            try:
+                self.wifi_widget._cleanup_active_worker(wait_ms=100)
+            except Exception:
+                pass
+
+        # Cooperatively request cancellation and wait up to 500ms for active workers
+        ActiveThreadRegistry.cancel_and_wait_all(timeout_ms=500)
+        event.accept()
+
+    def refresh_health(self) -> None:
+        """Asynchronously evaluate runtime system health without blocking GUI (TASK-P4-03)."""
+        if getattr(self, "_health_worker_running", False) or getattr(self, "_is_shutting_down", False):
+            return
+        self._health_worker_running = True
+        self._health_request_id = getattr(self, "_health_request_id", 0) + 1
+        req_id = self._health_request_id
+        self._set_health_status("CHECKING", "Evaluating runtime system health...")
+
+        worker = AsyncOperationWorker(req_id, self.app.check_health)
+        worker.finished.connect(self._on_health_check_finished)
+        worker.failed.connect(self._on_health_check_failed)
+        AsyncWorkerRunner.launch(worker)
+
+    def _on_health_check_finished(self, req_id: int, report: Any) -> None:
+        if req_id != getattr(self, "_health_request_id", 0):
+            return
+        self._health_worker_running = False
+        try:
+            if not isinstance(report, SystemHealthReport):
+                self._set_health_status("UNAVAILABLE", "Invalid health report received")
+                return
+
+            issues = [str(i) for i in report.issues] if report.issues else []
+            tooltip = "\n".join(issues) if issues else "All systems operating normally."
+
+            if report.status == HealthStatus.HEALTHY:
+                self._set_health_status("HEALTHY", tooltip)
+            elif report.status == HealthStatus.WARNING:
+                self._set_health_status("WARNING", tooltip)
+            elif report.status == HealthStatus.DEGRADED:
+                self._set_health_status("DEGRADED", tooltip)
+            else:
+                self._set_health_status("UNAVAILABLE", tooltip)
+        except RuntimeError:
+            pass
+        except Exception as e:
+            self._set_health_status("UNAVAILABLE", f"Health status evaluation error: {e}")
+
+    def _on_health_check_failed(self, req_id: int, error_msg: str) -> None:
+        if req_id != getattr(self, "_health_request_id", 0):
+            return
+        self._health_worker_running = False
+        safe_msg = str(error_msg).split("\n")[0][:100]
+        self._set_health_status("UNAVAILABLE", f"Health check failed: {safe_msg}")
+
+    def _set_health_status(self, state: str, tooltip: str) -> None:
+        try:
+            if state == "HEALTHY":
+                self.health_badge.setText("● HEALTHY")
+                self.health_badge.setStyleSheet(
+                    "background-color: #04260f; color: #3fb950; border: 1px solid #238636; "
+                    "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
+                )
+            elif state == "WARNING":
+                self.health_badge.setText("⚠️ WARNING")
+                self.health_badge.setStyleSheet(
+                    "background-color: #271e06; color: #d29922; border: 1px solid #9e6a03; "
+                    "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
+                )
+            elif state == "DEGRADED":
+                self.health_badge.setText("❌ DEGRADED")
+                self.health_badge.setStyleSheet(
+                    "background-color: #311114; color: #f85149; border: 1px solid #b62324; "
+                    "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
+                )
+            elif state == "CHECKING":
+                self.health_badge.setText("⏳ CHECKING")
+                self.health_badge.setStyleSheet(
+                    "background-color: #161b22; color: #58a6ff; border: 1px solid #1f6feb; "
+                    "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
+                )
+            elif state == "UNCHECKED":
+                self.health_badge.setText("● UNCHECKED")
+                self.health_badge.setStyleSheet(
+                    "background-color: #161b22; color: #8b949e; border: 1px solid #30363d; "
+                    "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
+                )
+            else:  # UNAVAILABLE
+                self.health_badge.setText("⚠️ UNAVAILABLE")
+                self.health_badge.setStyleSheet(
+                    "background-color: #21262d; color: #8b949e; border: 1px solid #484f58; "
+                    "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
+                )
+            self.health_badge.setToolTip(tooltip)
+        except RuntimeError:
+            pass
+
     def _create_shell_header(self) -> QFrame:
         """Create persistent top shell header with branding, global search, and scope indicators."""
         header_frame = QFrame()
@@ -157,10 +271,12 @@ class MainWindow(QMainWindow):  # type: ignore
         )
         h_layout.addWidget(self.scope_badge)
 
-        # Health status badge
-        self.health_badge = QLabel("● HEALTHY")
+        # Health status badge (TASK-P4-03: initialized to UNCHECKED state)
+        self.health_badge = QLabel("● UNCHECKED")
+        self.health_badge.setObjectName("HealthStatusBadge")
+        self.health_badge.setToolTip("System health check has not been run.")
         self.health_badge.setStyleSheet(
-            "background-color: #04260f; color: #3fb950; border: 1px solid #238636; "
+            "background-color: #161b22; color: #8b949e; border: 1px solid #30363d; "
             "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold;"
         )
         h_layout.addWidget(self.health_badge)

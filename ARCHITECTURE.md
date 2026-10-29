@@ -94,7 +94,9 @@ ITSA Network OS is engineered as an evidence-based, modular network operations p
 ### Module I: User Interface (`itsa_network_os.ui`)
 - **Scope:** Dual-mode user presentation:
   1. CLI interface (`cli.py`, `main.py`) with rich table formatting and JSON flags.
-  2. PySide6 desktop interface (`desktop/app_window.py`) with 14 interactive tabs and custom 2D canvas visualizers.
+  2. PySide6 desktop interface (`desktop/app_window.py`) with 14 interactive views and custom 2D canvas visualizers.
+  3. Unified Asset Inventory & Detail Inspector (`AssetDetailInspector`) featuring 5 facet tabs: *Identity & Attributes*, *Ports & Interfaces*, *IP Binding Timeline*, *Topology Links*, and *Evidence Provenance* (reconciled per advisory AUDIT-P3-003).
+  4. Decoupled status indicators: global platform/safety status in `QStatusBar` vs. asset metrics in `AssetInventoryView` header banner (reconciled per advisory AUDIT-P3-004).
 - **Invariants:** Graceful headless fallback when display server is unavailable.
 
 ### Module J: Security & Privilege Management (`itsa_network_os.security`)

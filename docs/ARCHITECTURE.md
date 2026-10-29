@@ -62,10 +62,10 @@ It is architected following clean separation of concerns, defensive programming 
 
 ### 2.5 UI (`src/itsa_network_os/ui/`)
 - **`cli.py`**: Standard terminal UI with clean tables, structured headers, and exit codes suitable for scripting and pipelines.
-- **`desktop/`**: Modern PySide6 desktop dashboard featuring 14 interactive tabs with dark glassmorphic styling:
+- **`desktop/`**: Modern PySide6 desktop dashboard featuring 14 interactive views with dark glassmorphic styling:
   1. System Overview & Health
   2. CIDR Subnet Calculator
-  3. Network Interfaces
+  3. Network Interfaces & Unified Asset Inventory
   4. DNS Resolution Diagnostics
   5. Latency Benchmark
   6. Cybersecurity Posture Audit
@@ -77,6 +77,17 @@ It is architected following clean separation of concerns, defensive programming 
   12. TLS / SSL Cryptographic & Certificate Inspector
   13. OSPF / Dijkstra Shortest Path First Simulator
   14. Multi-Vendor Hardware & IP Surveillance Camera Manager
+- **Unified Asset Inspector (`AssetDetailInspector`)**:
+  Provides deep inspection across 5 facet tabs:
+  1. *Identity & Attributes*: Asset UUID, canonical name, vendor, model, serial, confidence, status, and custom attributes.
+  2. *Ports & Interfaces*: Network interfaces, MAC addresses, port speeds, duplex, and MTU specifications.
+  3. *IP Binding Timeline*: Historical and active IPv4/IPv6 address allocations and observation timestamps.
+  4. *Topology Links*: Adjacencies, neighbors, remote endpoints, and interface connections.
+  5. *Evidence Provenance*: Cryptographically traceable discovery records, collection timestamps, confidence ratings, and source components.
+  *(Note: Reconciled per Phase 3 advisory AUDIT-P3-003: preliminary report notes mentioning seven tabs are superseded by this 5-tab architecture).*
+- **Status Bar & Metric Presentation**:
+  - *Global Status Bar (`QStatusBar`)*: Dedicated to platform metadata, safety privilege mode (`Non-Root (Safe)`), and ephemeral/persistent database mode.
+  - *Asset Count Display*: Displayed in the header banner of the Unified Asset Inventory view (`AssetInventoryView`), separating inventory metrics from global host status (reconciled per Phase 3 advisory AUDIT-P3-004).
 
 ## 3. Security & Safety Guarantees
 - **Least Privilege**: Application runs strictly as an unprivileged user (`non-root`).

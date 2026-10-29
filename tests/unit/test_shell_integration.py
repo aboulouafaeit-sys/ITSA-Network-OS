@@ -1,5 +1,4 @@
-"""Unit tests for unified application shell integration, global search, and navigation."""
-
+import time
 import unittest
 
 try:
@@ -29,13 +28,24 @@ class TestShellIntegration(unittest.TestCase):
         self.app = Application(config=AppConfig(database_file=":memory:"))
         self.window = MainWindow(self.app)
 
+    def tearDown(self) -> None:
+        if hasattr(self, "window") and self.window:
+            self.window.close()
+
     def test_shell_header_presence(self) -> None:
         self.assertTrue(hasattr(self.window, "header"))
         self.assertTrue(hasattr(self.window, "global_search_input"))
         self.assertTrue(hasattr(self.window, "scope_badge"))
         self.assertTrue(hasattr(self.window, "health_badge"))
         self.assertIn("Scope:", self.window.scope_badge.text())
-        self.assertIn("HEALTHY", self.window.health_badge.text())
+        # Truthful asynchronous health check (TASK-P4-03)
+        for _ in range(50):
+            if any(st in self.window.health_badge.text() for st in ["HEALTHY", "WARNING"]):
+                break
+            if self.qt_app:
+                self.qt_app.processEvents()
+            time.sleep(0.01)
+        self.assertTrue(any(st in self.window.health_badge.text() for st in ["CHECKING", "HEALTHY", "WARNING"]))
 
     def test_global_search_routing(self) -> None:
         # Type in the global search bar

@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — Phase 4 Enhancements
+
+### Changed
+- **Asynchronous GUI Responsiveness & Worker Lifecycle Hardening (TASK-P4-01, TASK-P4-02, TASK-P4-04)**:
+  - Migrated diagnostic and discovery execution to asynchronous workers (`AsyncOperationWorker`, `AsyncWorkerRunner`) across DNS diagnostics, Latency benchmark, Security audit, Unified asset inventory, and Multi-vendor hardware manager.
+  - Eliminated eager execution from view constructors, establishing truthful idle/ready states and duplicate-launch prevention with button toggling.
+  - Added request ID tracking to prevent stale worker results from overwriting newer user state.
+  - Hardened application shutdown and worker cancellation in `MainWindow.closeEvent` with `ActiveThreadRegistry.cancel_and_wait_all()`, guaranteeing QThread lifecycle integrity.
+- **Truthful Runtime Health Indicator (TASK-P4-03)**:
+  - Replaced static shell-header health label with asynchronous runtime health evaluation reflecting `Application.check_health()` status (`UNCHECKED`, `CHECKING`, `HEALTHY`, `WARNING`, `DEGRADED`, `UNAVAILABLE`).
+- **Documentation Reconciliation (TASK-P4-05)**:
+  - Reconciled `AssetDetailInspector` architecture specification to accurately reflect its 5 implemented facet tabs (*Identity & Attributes*, *Ports & Interfaces*, *IP Binding Timeline*, *Topology Links*, *Evidence Provenance*), resolving advisory AUDIT-P3-003.
+  - Clarified separation of global safety status in `QStatusBar` and inventory count metrics in `AssetInventoryView` header banner, resolving advisory AUDIT-P3-004.
+
+### Advisories Tracked
+- **P4-ADV-001**: Validate late-running worker behavior after the 500 ms shutdown wait, including callbacks after window closure.
+- **P4-ADV-002**: Perform a manual GUI smoke test on a real Debian 13 desktop session when practical.
+
 ---
 
 ## [0.1.0] — 2026-10-19 — Baseline Re-Engineering Release

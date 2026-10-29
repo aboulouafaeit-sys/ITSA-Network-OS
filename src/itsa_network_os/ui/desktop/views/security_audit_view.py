@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 try:
     from PySide6.QtWidgets import (
@@ -22,6 +22,7 @@ except ImportError:
     QWidget = object  # type: ignore
 
 from itsa_network_os.app import Application
+from itsa_network_os.ui.desktop.workers import AsyncOperationWorker, AsyncWorkerRunner
 
 
 class SecurityAuditView(QWidget):  # type: ignore
@@ -30,6 +31,10 @@ class SecurityAuditView(QWidget):  # type: ignore
     def __init__(self, app: Application, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.app = app
+        self._request_counter: int = 0
+        self._is_loading: bool = False
+        self._active_worker: Optional[AsyncOperationWorker] = None
+
         self.setAccessibleName("Security Audit View")
         self.setAccessibleDescription("Non-destructive least-privilege auditing, open service bindings, and recommendations.")
         if PYSIDE6_AVAILABLE:
@@ -48,16 +53,16 @@ class SecurityAuditView(QWidget):  # type: ignore
         layout.addWidget(subtitle)
 
         top_row = QHBoxLayout()
-        self.audit_score_card = self._make_card("Security Posture Score", "100/100", "#3fb950")
-        self.audit_ports_card = self._make_card("Listening Local Ports", "None", "#58a6ff")
+        self.audit_score_card = self._make_card("Security Posture Score", "Not Scanned", "#8b949e")
+        self.audit_ports_card = self._make_card("Listening Local Ports", "Not Scanned", "#8b949e")
         top_row.addWidget(self.audit_score_card)
         top_row.addWidget(self.audit_ports_card)
 
-        refresh_audit_btn = QPushButton("Re-run Audit")
-        refresh_audit_btn.setProperty("class", "PrimaryButton")
-        refresh_audit_btn.setAccessibleName("Re-run Audit Button")
-        refresh_audit_btn.clicked.connect(self._run_audit_scan)
-        top_row.addWidget(refresh_audit_btn)
+        self.refresh_audit_btn = QPushButton("Run Audit")
+        self.refresh_audit_btn.setProperty("class", "PrimaryButton")
+        self.refresh_audit_btn.setAccessibleName("Re-run Audit Button")
+        self.refresh_audit_btn.clicked.connect(self._run_audit_scan)
+        top_row.addWidget(self.refresh_audit_btn)
         layout.addLayout(top_row)
 
         self.audit_table = QTableWidget()
@@ -68,21 +73,73 @@ class SecurityAuditView(QWidget):  # type: ignore
         self.audit_table.setEditTriggers(QTableWidget.NoEditTriggers)
         layout.addWidget(self.audit_table)
 
-        self._run_audit_scan()
-
     def _run_audit_scan(self) -> None:
-        report = self.app.run_security_audit()
-        score_color = "#3fb950" if report.overall_score >= 80 else "#d29922" if report.overall_score >= 60 else "#f85149"
-        self._update_card(self.audit_score_card, "Security Posture Score", f"{report.overall_score}/100", score_color)
-        ports_str = ", ".join(str(p) for p in report.open_local_ports) if report.open_local_ports else "(none)"
-        self._update_card(self.audit_ports_card, "Listening Local Ports", ports_str)
+        """Trigger asynchronous security audit with duplicate-launch protection."""
+        if self._is_loading:
+            return
 
-        self.audit_table.setRowCount(len(report.findings))
-        for row, f in enumerate(report.findings):
-            self.audit_table.setItem(row, 0, QTableWidgetItem(f.category))
-            self.audit_table.setItem(row, 1, QTableWidgetItem(f.severity.value))
-            self.audit_table.setItem(row, 2, QTableWidgetItem(f.title))
-            self.audit_table.setItem(row, 3, QTableWidgetItem(f.recommendation))
+        self._is_loading = True
+        self.refresh_audit_btn.setEnabled(False)
+        self.refresh_audit_btn.setText("Auditing...")
+        self._update_card(self.audit_score_card, "Security Posture Score", "Scanning...", "#8b949e")
+        self._update_card(self.audit_ports_card, "Listening Local Ports", "Scanning...", "#8b949e")
+
+        self._request_counter += 1
+        req_id = self._request_counter
+
+        worker = AsyncOperationWorker(req_id, self.app.run_security_audit)
+        self._active_worker = worker
+
+        AsyncWorkerRunner.launch(
+            worker,
+            on_finished=self._on_audit_finished,
+            on_failed=self._on_audit_failed,
+        )
+
+    def _on_audit_finished(self, req_id: int, report: Any) -> None:
+        """Handle completed security audit results on GUI thread."""
+        if req_id != self._request_counter:
+            return
+
+        try:
+            if not hasattr(self, "refresh_audit_btn") or self.refresh_audit_btn is None:
+                return
+
+            self._is_loading = False
+            self.refresh_audit_btn.setEnabled(True)
+            self.refresh_audit_btn.setText("Re-run Audit")
+
+            score_color = "#3fb950" if report.overall_score >= 80 else "#d29922" if report.overall_score >= 60 else "#f85149"
+            self._update_card(self.audit_score_card, "Security Posture Score", f"{report.overall_score}/100", score_color)
+            ports_str = ", ".join(str(p) for p in report.open_local_ports) if report.open_local_ports else "(none)"
+            self._update_card(self.audit_ports_card, "Listening Local Ports", ports_str)
+
+            self.audit_table.setRowCount(len(report.findings))
+            for row, f in enumerate(report.findings):
+                self.audit_table.setItem(row, 0, QTableWidgetItem(f.category))
+                self.audit_table.setItem(row, 1, QTableWidgetItem(f.severity.value))
+                self.audit_table.setItem(row, 2, QTableWidgetItem(f.title))
+                self.audit_table.setItem(row, 3, QTableWidgetItem(f.recommendation))
+        except RuntimeError:
+            return
+
+    def _on_audit_failed(self, req_id: int, error_msg: str) -> None:
+        """Handle security audit failure on GUI thread."""
+        if req_id != self._request_counter:
+            return
+
+        try:
+            if not hasattr(self, "refresh_audit_btn") or self.refresh_audit_btn is None:
+                return
+
+            self._is_loading = False
+            self.refresh_audit_btn.setEnabled(True)
+            self.refresh_audit_btn.setText("Re-run Audit")
+            self._update_card(self.audit_score_card, "Security Posture Score", "Failed", "#f85149")
+            self._update_card(self.audit_ports_card, "Listening Local Ports", error_msg, "#f85149")
+            self.audit_table.setRowCount(0)
+        except RuntimeError:
+            return
 
     def _make_card(self, title_text: str, value_text: str, color: str = "#f0f6fc") -> QFrame:
         card = QFrame()
