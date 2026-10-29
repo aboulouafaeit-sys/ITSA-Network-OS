@@ -7,7 +7,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from itsa_network_os.network.dns import DNSDiagnostics
 from itsa_network_os.network.models import (
@@ -19,6 +19,9 @@ from itsa_network_os.network.models import (
     NetworkInterface,
 )
 from itsa_network_os.network.routes import RouteParser
+
+if TYPE_CHECKING:
+    from itsa_network_os.network.assets import AssetGraph, NetworkAsset
 
 
 class NetworkProvider(Protocol):
@@ -591,3 +594,39 @@ class NetworkInspector:
     def get_default_gateways(self) -> List[GatewayInfo]:
         """Fetch default gateways safely."""
         return RouteParser.get_default_gateways(use_mock=self.use_mock)
+
+    def get_host_asset(self, host_system_name: str = "localhost", host_uuid: Optional[str] = None) -> NetworkAsset:
+        """Translate inspected interfaces, gateways, and DNS resolvers into a unified NetworkAsset."""
+        from itsa_network_os.network.assets import from_host_interfaces
+
+        interfaces = self.list_interfaces()
+        gateways = self.get_default_gateways()
+        dns_servers = self.get_system_dns()
+        return from_host_interfaces(
+            interfaces=interfaces,
+            host_system_name=host_system_name,
+            host_uuid=host_uuid,
+            gateways=gateways,
+            dns_servers=dns_servers,
+        )
+
+    def get_asset_graph(
+        self,
+        host_system_name: str = "localhost",
+        host_uuid: Optional[str] = None,
+        include_configured_services: bool = True,
+    ) -> AssetGraph:
+        """Translate inspected network state into an AssetGraph with explicit configured relationships."""
+        from itsa_network_os.network.assets import build_discovery_asset_graph
+
+        interfaces = self.list_interfaces()
+        gateways = self.get_default_gateways()
+        dns_servers = self.get_system_dns()
+        return build_discovery_asset_graph(
+            interfaces=interfaces,
+            gateways=gateways,
+            dns_servers=dns_servers,
+            host_system_name=host_system_name,
+            host_uuid=host_uuid,
+            include_configured_services=include_configured_services,
+        )

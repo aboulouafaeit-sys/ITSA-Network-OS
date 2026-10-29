@@ -5,7 +5,10 @@ from __future__ import annotations
 import math
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from itsa_network_os.network.assets import AssetGraph
 
 
 class TopologyNodeType(str, Enum):
@@ -207,3 +210,10 @@ class TopologyDiscoveryEngine:
         topo = NetworkTopology(nodes=nodes, links=links)
         topo.compute_hierarchical_layout()
         return topo
+
+    @classmethod
+    def get_default_asset_graph(cls) -> AssetGraph:
+        """Generate default network topology represented as a vendor-neutral AssetGraph."""
+        from itsa_network_os.network.assets import from_network_topology
+
+        return from_network_topology(cls.get_default_topology())

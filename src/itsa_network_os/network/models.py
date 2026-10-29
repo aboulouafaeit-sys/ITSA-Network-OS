@@ -178,6 +178,8 @@ class EvidenceProtocol(str, Enum):
     HTTP = "HTTP"
     RTSP = "RTSP"
     MOCK = "MOCK"
+    KERNEL_RTNETLINK = "KERNEL_RTNETLINK"
+    SYSTEM_RESOLV_CONF = "SYSTEM_RESOLV_CONF"
 
 
 @dataclass(frozen=True)

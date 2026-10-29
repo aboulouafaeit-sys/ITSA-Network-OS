@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import ipaddress
+import json
 import math
 import re
 import uuid
@@ -18,8 +19,10 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 from itsa_network_os.network.models import (
+    DNSServerInfo,
     EvidenceProtocol,
     EvidenceRecord,
+    GatewayInfo,
     InterfaceState,
     InterfaceType,
     IPAddressInfo,
@@ -28,7 +31,7 @@ from itsa_network_os.network.models import (
 from itsa_network_os.storage.redaction import CredentialRedactor
 
 if TYPE_CHECKING:
-    from itsa_network_os.network.topology import TopologyLink, TopologyNode
+    from itsa_network_os.network.topology import NetworkTopology, TopologyLink, TopologyNode
     from itsa_network_os.network.vendor_manager import ManagedDevice
 
 
@@ -81,6 +84,10 @@ class RelationshipType(str, Enum):
     INFERRED_ROUTED_HOP = "INFERRED_ROUTED_HOP"           # e.g., traceroute TTL decrement
     INFERRED_WIRELESS_LINK = "INFERRED_WIRELESS_LINK"     # e.g., matching SSID/frequency/BSSID
     INFERRED_DEVICE_TYPE = "INFERRED_DEVICE_TYPE"         # e.g., MAC OUI prefix lookup
+
+    # CONFIGURATION: Configured next-hop or service endpoint (unverified live reachability)
+    CONFIGURED_GATEWAY = "CONFIGURED_GATEWAY"             # Configured default or static route gateway
+    CONFIGURED_DNS = "CONFIGURED_DNS"                     # Configured DNS nameserver resolver
 
 
 class TelemetryCategory(str, Enum):
@@ -337,8 +344,16 @@ class AttributeHistory:
         self.observations.append(obs)
 
         # Detect conflict if distinct values have been observed recently
-        distinct_values = {o.value for o in self.observations}
-        self.has_conflict = len(distinct_values) > 1
+        try:
+            distinct_values = {o.value for o in self.observations}
+            self.has_conflict = len(distinct_values) > 1
+        except TypeError:
+            # Fallback for unhashable values like dicts or lists
+            distinct_list: List[Any] = []
+            for o in self.observations:
+                if o.value not in distinct_list:
+                    distinct_list.append(o.value)
+            self.has_conflict = len(distinct_list) > 1
 
         # Resolve current value: prioritize verified facts over inferences, then higher confidence, then newest
         def sort_key(o: AttributeObservation) -> Tuple[int, float, str]:
@@ -665,6 +680,12 @@ class NetworkAsset:
             return history.has_conflict
         return False
 
+    def add_port(self, port: PhysicalPort) -> None:
+        """Register a physical or logical port on this asset."""
+        if not isinstance(port, PhysicalPort):
+            raise TypeError(f"port must be PhysicalPort, got {type(port).__name__}")
+        self.ports[port.port_id] = port
+
     def bind_ip(
         self,
         ip_address: str,
@@ -710,12 +731,33 @@ class NetworkAsset:
                 )
             )
 
+    def unbind_ip(self, ip_address: str) -> None:
+        """Mark an IP address binding as non-current while preserving historical record."""
+        norm_ip = normalize_ip_address(ip_address)
+        if not norm_ip:
+            return
+        if norm_ip in self.management_ips:
+            self.management_ips.remove(norm_ip)
+        for i, b in enumerate(list(self.ip_history)):
+            if b.ip_address == norm_ip and b.is_current:
+                updated = IPBindingRecord(
+                    ip_address=b.ip_address,
+                    interface_name=b.interface_name,
+                    first_seen=b.first_seen,
+                    last_seen=now_utc(),
+                    is_current=False,
+                    scope=b.scope,
+                    classification=b.classification,
+                    evidence=b.evidence,
+                )
+                self.ip_history[i] = updated
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize NetworkAsset to JSON-compatible dictionary with secret scrubbing."""
         # Sanitize metadata using CredentialRedactor before serialization
         sanitized_metadata, _ = CredentialRedactor.redact(self.metadata)
 
-        return {
+        raw_dict = {
             "identity": self.identity.to_dict(),
             "category": self.category.value,
             "vendor": self.vendor,
@@ -730,6 +772,8 @@ class NetworkAsset:
             "evidence_records": [e.to_dict() for e in self.evidence_records],
             "metadata": sanitized_metadata,
         }
+        sanitized, _ = CredentialRedactor.redact(raw_dict)
+        return sanitized
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> NetworkAsset:
@@ -749,6 +793,53 @@ class NetworkAsset:
         # Deserialize ports
         for port_id, port_data in data.get("ports", {}).items():
             asset.ports[port_id] = PhysicalPort.from_dict(port_data)
+
+        # Deserialize interfaces if present
+        for iface_name, iface_data in data.get("interfaces", {}).items():
+            try:
+                addresses = [
+                    IPAddressInfo(
+                        address=a["address"],
+                        prefix_length=int(a["prefix_length"]),
+                        family=a["family"],
+                        netmask=a.get("netmask"),
+                        scope=a.get("scope"),
+                        classification=a.get("classification"),
+                    )
+                    for a in iface_data.get("addresses", [])
+                ]
+                gateways = [
+                    GatewayInfo(
+                        gateway=g["gateway"],
+                        family=g.get("family", "IPv4"),
+                        metric=g.get("metric"),
+                        interface=g.get("interface"),
+                        protocol=g.get("protocol"),
+                        flags=g.get("flags", []),
+                    )
+                    for g in iface_data.get("gateways", [])
+                ]
+                dns_servers = [
+                    DNSServerInfo(
+                        address=d["address"],
+                        scope=d.get("scope", "system"),
+                        interface=d.get("interface"),
+                        provenance=d.get("provenance", "resolv.conf"),
+                    )
+                    for d in iface_data.get("dns_servers", [])
+                ]
+                asset.interfaces[iface_name] = NetworkInterface(
+                    name=iface_data.get("name", iface_name),
+                    mac_address=iface_data.get("mac_address", "00:00:00:00:00:00"),
+                    state=InterfaceState(iface_data.get("state", InterfaceState.UNKNOWN.value)),
+                    interface_type=InterfaceType(iface_data.get("interface_type", InterfaceType.UNKNOWN.value)),
+                    mtu=int(iface_data.get("mtu", 1500)),
+                    addresses=addresses,
+                    gateways=gateways,
+                    dns_servers=dns_servers,
+                )
+            except Exception:
+                pass
 
         # Deserialize IP history
         for ip_data in data.get("ip_history", []):
@@ -969,6 +1060,7 @@ def from_topology_node(node: TopologyNode) -> NetworkAsset:
     )
 
     category_map: Dict[str, AssetCategory] = {
+        "Internet": AssetCategory.GATEWAY,
         "Router": AssetCategory.ROUTER,
         "Gateway": AssetCategory.GATEWAY,
         "Switch": AssetCategory.SWITCH,
@@ -989,10 +1081,13 @@ def from_topology_node(node: TopologyNode) -> NetworkAsset:
         identity=identity,
         category=cat,
         status=stat,
-        metadata={"x": node.x, "y": node.y, **copy.deepcopy(node.details)},
+        metadata={"legacy_node_type": node.node_type.value, "x": node.x, "y": node.y, **copy.deepcopy(node.details)},
     )
     if node.ip_address:
-        asset.bind_ip(node.ip_address)
+        try:
+            asset.bind_ip(node.ip_address)
+        except ValueError:
+            asset.metadata["display_ip"] = node.ip_address
     return asset
 
 
@@ -1008,7 +1103,14 @@ def to_topology_node(asset: NetworkAsset) -> TopologyNode:
         AssetCategory.WORKSTATION: TopologyNodeType.WORKSTATION,
         AssetCategory.SUBNET: TopologyNodeType.SUBNET,
     }
-    node_type = type_map.get(asset.category, TopologyNodeType.WORKSTATION)
+    legacy_type_str = asset.metadata.get("legacy_node_type")
+    if legacy_type_str:
+        try:
+            node_type = TopologyNodeType(legacy_type_str)
+        except ValueError:
+            node_type = type_map.get(asset.category, TopologyNodeType.WORKSTATION)
+    else:
+        node_type = type_map.get(asset.category, TopologyNodeType.WORKSTATION)
 
     status_map: Dict[EntityStatus, NodeStatus] = {
         EntityStatus.ONLINE: NodeStatus.ONLINE,
@@ -1019,7 +1121,7 @@ def to_topology_node(asset: NetworkAsset) -> TopologyNode:
     }
     node_status = status_map.get(asset.status, NodeStatus.ONLINE)
 
-    primary_ip = asset.management_ips[0] if asset.management_ips else ""
+    primary_ip = asset.management_ips[0] if asset.management_ips else str(asset.metadata.get("display_ip", ""))
     x_pos = float(asset.metadata.get("x", 0.0))
     y_pos = float(asset.metadata.get("y", 0.0))
 
@@ -1148,16 +1250,434 @@ def from_network_interface(interface: NetworkInterface, host_system_name: str = 
     return asset
 
 
-def to_topology_link(link: LogicalLink) -> TopologyLink:
+def to_topology_link(link: LogicalLink, graph: Optional[AssetGraph] = None) -> TopologyLink:
     """Convert LogicalLink into a legacy TopologyLink for visualization."""
     from itsa_network_os.network.topology import TopologyLink
 
+    src_id = link.source_asset_id
+    dst_id = link.target_asset_id
+    if graph:
+        src_asset = graph.get_asset(link.source_asset_id)
+        if src_asset and "legacy_topology_id" in src_asset.identity.external_ids:
+            src_id = src_asset.identity.external_ids["legacy_topology_id"]
+        dst_asset = graph.get_asset(link.target_asset_id)
+        if dst_asset and "legacy_topology_id" in dst_asset.identity.external_ids:
+            dst_id = dst_asset.identity.external_ids["legacy_topology_id"]
+
     return TopologyLink(
         id=link.link_id,
-        source_id=link.source_asset_id,
-        target_id=link.target_asset_id,
+        source_id=src_id,
+        target_id=dst_id,
         link_type=link.relationship_type.value,
         speed_mbps=int(link.bandwidth_mbps) if link.bandwidth_mbps else 1000,
         latency_ms=link.latency_ms if link.latency_ms is not None else 0.5,
         status=link.status,
     )
+
+
+def from_host_interfaces(
+    interfaces: List[NetworkInterface],
+    host_system_name: str = "localhost",
+    host_uuid: Optional[str] = None,
+    gateways: Optional[List[GatewayInfo]] = None,
+    dns_servers: Optional[List[DNSServerInfo]] = None,
+) -> NetworkAsset:
+    """Aggregate local host interfaces, addresses, gateways, and resolvers into a unified NetworkAsset.
+
+    Ensures that multi-interface hosts (e.g. lo, eth0, wlan0) are represented as a single
+    NetworkAsset without generating duplicate host entities. Preserves separate interface
+    identity, IPv4/IPv6 address history, and explicit non-reachability semantics for configured
+    gateways and DNS resolvers.
+    """
+    # Filter non-loopback interfaces for primary MAC identification
+    non_loopback_ifaces = [
+        i for i in interfaces if i.interface_type != InterfaceType.LOOPBACK and not i.name.startswith("lo")
+    ]
+
+    primary_mac: Optional[str] = None
+    for iface in non_loopback_ifaces:
+        if iface.mac_address and iface.mac_address != "00:00:00:00:00:00":
+            try:
+                norm = normalize_mac_address(iface.mac_address)
+                if norm and norm != "00:00:00:00:00:00":
+                    primary_mac = norm
+                    break
+            except ValueError:
+                continue
+
+    # Determine stable host UUID
+    if host_uuid:
+        resolved_uuid = host_uuid
+    elif primary_mac:
+        resolved_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"host.{host_system_name}.{primary_mac}"))
+    else:
+        resolved_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"host.{host_system_name}"))
+
+    external_ids: Dict[str, str] = {"host_system_name": host_system_name}
+    if primary_mac:
+        external_ids["primary_mac"] = primary_mac
+
+    identity = AssetIdentity(
+        id=resolved_uuid,
+        system_name=host_system_name,
+        primary_mac=primary_mac,
+        external_ids=external_ids,
+        vendor_guess=None,
+        model_guess=None,
+    )
+
+    # Classify overall host category
+    category = AssetCategory.UNKNOWN
+    for iface in interfaces:
+        if iface.interface_type in (InterfaceType.ETHERNET, InterfaceType.WIRELESS):
+            category = AssetCategory.WORKSTATION
+            break
+
+    # Determine host operational status
+    if non_loopback_ifaces:
+        status = EntityStatus.ONLINE if any(i.state == InterfaceState.UP for i in non_loopback_ifaces) else EntityStatus.OFFLINE
+    elif interfaces:
+        status = EntityStatus.ONLINE if any(i.state == InterfaceState.UP for i in interfaces) else EntityStatus.OFFLINE
+    else:
+        status = EntityStatus.UNKNOWN
+
+    asset = NetworkAsset(
+        identity=identity,
+        category=category,
+        status=status,
+    )
+
+    # Map each interface to asset.interfaces and asset.ports
+    for iface in interfaces:
+        asset.interfaces[iface.name] = iface
+
+        port_mac: Optional[str] = None
+        if iface.mac_address and iface.mac_address != "00:00:00:00:00:00":
+            try:
+                port_mac = normalize_mac_address(iface.mac_address)
+            except ValueError:
+                port_mac = None
+
+        port = PhysicalPort(
+            port_id=f"port.{iface.name}",
+            name=iface.name,
+            mac_address=port_mac,
+            is_up=(iface.state == InterfaceState.UP),
+        )
+        asset.add_port(port)
+
+        # Bind IP addresses with verified kernel evidence
+        for addr in iface.addresses:
+            try:
+                ev = EvidenceRecord(
+                    source_protocol=EvidenceProtocol.KERNEL_RTNETLINK,
+                    timestamp=now_utc(),
+                    confidence=1.0,
+                    is_verified_fact=True,
+                    attribute=f"ip_address.{addr.family.lower()}",
+                    details=json.dumps(
+                        {
+                            "interface": iface.name,
+                            "prefix_length": addr.prefix_length,
+                            "scope": addr.scope,
+                            "netmask": addr.netmask,
+                        },
+                        sort_keys=True,
+                    ),
+                )
+                asset.bind_ip(
+                    ip_address=addr.address,
+                    interface_name=iface.name,
+                    scope=addr.scope,
+                    classification=addr.classification,
+                    evidence=ev,
+                )
+            except ValueError:
+                continue
+
+    # Record configured gateways as evidentiary observations without reachability claims
+    all_gateways: List[GatewayInfo] = []
+    if gateways:
+        all_gateways.extend(gateways)
+    for iface in interfaces:
+        all_gateways.extend(iface.gateways)
+
+    seen_gws: Set[Tuple[str, Optional[str], Optional[str]]] = set()
+    for gw in all_gateways:
+        gw_key = (gw.gateway, gw.interface, gw.family)
+        if gw_key in seen_gws:
+            continue
+        seen_gws.add(gw_key)
+
+        ev = EvidenceRecord(
+            source_protocol=EvidenceProtocol.KERNEL_RTNETLINK if gw.protocol != "mock" else EvidenceProtocol.MOCK,
+            timestamp=now_utc(),
+            confidence=1.0,
+            is_verified_fact=True,
+            attribute=f"gateway.{gw.family}",
+            details=json.dumps(
+                {
+                    "gateway": gw.gateway,
+                    "interface": gw.interface,
+                    "metric": gw.metric,
+                    "protocol": gw.protocol,
+                    "flags": list(gw.flags),
+                    "verified_reachability": False,
+                    "relationship": RelationshipType.CONFIGURED_GATEWAY.value,
+                },
+                sort_keys=True,
+            ),
+        )
+        asset.record_observation(
+            attribute=f"configured_gateway.{gw.family.lower()}.{gw.gateway}",
+            value=gw.to_dict(),
+            evidence=ev,
+            category=TelemetryCategory.ROUTING_ENTRY,
+        )
+
+    # Record configured DNS resolvers as evidentiary observations without reachability claims
+    all_dns: List[DNSServerInfo] = []
+    if dns_servers:
+        all_dns.extend(dns_servers)
+    for iface in interfaces:
+        all_dns.extend(iface.dns_servers)
+
+    seen_dns: Set[Tuple[str, Optional[str], str]] = set()
+    for dns in all_dns:
+        dns_key = (dns.address, dns.interface, dns.scope)
+        if dns_key in seen_dns:
+            continue
+        seen_dns.add(dns_key)
+
+        ev = EvidenceRecord(
+            source_protocol=EvidenceProtocol.SYSTEM_RESOLV_CONF if dns.provenance != "mock" else EvidenceProtocol.MOCK,
+            timestamp=now_utc(),
+            confidence=1.0,
+            is_verified_fact=True,
+            attribute="dns_resolver",
+            details=json.dumps(
+                {
+                    "address": dns.address,
+                    "scope": dns.scope,
+                    "interface": dns.interface,
+                    "provenance": dns.provenance,
+                    "verified_reachability": False,
+                    "relationship": RelationshipType.CONFIGURED_DNS.value,
+                },
+                sort_keys=True,
+            ),
+        )
+        asset.record_observation(
+            attribute=f"configured_dns.{dns.address}",
+            value=dns.to_dict(),
+            evidence=ev,
+            category=TelemetryCategory.ROUTING_ENTRY,
+        )
+
+    return asset
+
+
+def build_discovery_asset_graph(
+    interfaces: List[NetworkInterface],
+    gateways: Optional[List[GatewayInfo]] = None,
+    dns_servers: Optional[List[DNSServerInfo]] = None,
+    host_system_name: str = "localhost",
+    host_uuid: Optional[str] = None,
+    include_configured_services: bool = True,
+) -> AssetGraph:
+    """Construct an AssetGraph containing the host asset and explicit configured associations."""
+    host_asset = from_host_interfaces(
+        interfaces=interfaces,
+        host_system_name=host_system_name,
+        host_uuid=host_uuid,
+        gateways=gateways,
+        dns_servers=dns_servers,
+    )
+    graph = AssetGraph()
+    graph.add_asset(host_asset)
+
+    if not include_configured_services:
+        return graph
+
+    # Collect unique gateways
+    all_gateways: List[GatewayInfo] = []
+    if gateways:
+        all_gateways.extend(gateways)
+    for iface in interfaces:
+        all_gateways.extend(iface.gateways)
+
+    seen_gws: Set[str] = set()
+    for gw in all_gateways:
+        if gw.gateway in seen_gws:
+            continue
+        seen_gws.add(gw.gateway)
+
+        gw_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"gateway.{gw.gateway}"))
+        gw_identity = AssetIdentity(
+            id=gw_uuid,
+            system_name=f"Configured Gateway ({gw.gateway})",
+            external_ids={"gateway_ip": gw.gateway, "interface": gw.interface or ""},
+            vendor_guess=None,
+        )
+        gw_asset = NetworkAsset(
+            identity=gw_identity,
+            category=AssetCategory.GATEWAY,
+            status=EntityStatus.UNKNOWN,
+            metadata={
+                "configured_interface": gw.interface,
+                "family": gw.family,
+                "metric": gw.metric,
+                "protocol": gw.protocol,
+                "flags": list(gw.flags),
+                "verified_reachability": False,
+                "is_physical_link": False,
+            },
+        )
+        gw_asset.bind_ip(gw.gateway, interface_name=gw.interface)
+        graph.add_asset(gw_asset)
+
+        link_id = f"link.{host_asset.id}.gw.{gw.gateway}"
+        link = LogicalLink(
+            link_id=link_id,
+            source_asset_id=host_asset.id,
+            target_asset_id=gw_uuid,
+            relationship_type=RelationshipType.CONFIGURED_GATEWAY,
+            source_port_or_interface=gw.interface,
+            confidence=1.0,
+            status="CONFIGURED",
+            evidence=EvidenceRecord(
+                source_protocol=EvidenceProtocol.KERNEL_RTNETLINK if gw.protocol != "mock" else EvidenceProtocol.MOCK,
+                timestamp=now_utc(),
+                confidence=1.0,
+                is_verified_fact=True,
+                attribute="route.default_gateway",
+                details=json.dumps(
+                    {
+                        "gateway": gw.gateway,
+                        "interface": gw.interface,
+                        "metric": gw.metric,
+                        "verified_reachability": False,
+                        "is_physical_link": False,
+                    },
+                    sort_keys=True,
+                ),
+            ),
+        )
+        graph.add_link(link)
+
+    # Collect unique DNS servers
+    all_dns: List[DNSServerInfo] = []
+    if dns_servers:
+        all_dns.extend(dns_servers)
+    for iface in interfaces:
+        all_dns.extend(iface.dns_servers)
+
+    seen_dns: Set[str] = set()
+    for dns in all_dns:
+        if dns.address in seen_dns:
+            continue
+        seen_dns.add(dns.address)
+
+        dns_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"dns.{dns.address}"))
+        dns_identity = AssetIdentity(
+            id=dns_uuid,
+            system_name=f"Configured DNS ({dns.address})",
+            external_ids={"dns_address": dns.address, "scope": dns.scope, "provenance": dns.provenance},
+            vendor_guess=None,
+        )
+        dns_asset = NetworkAsset(
+            identity=dns_identity,
+            category=AssetCategory.SERVER,
+            status=EntityStatus.UNKNOWN,
+            metadata={
+                "scope": dns.scope,
+                "interface": dns.interface,
+                "provenance": dns.provenance,
+                "verified_reachability": False,
+                "is_physical_link": False,
+            },
+        )
+        dns_asset.bind_ip(dns.address, interface_name=dns.interface)
+        graph.add_asset(dns_asset)
+
+        link_id = f"link.{host_asset.id}.dns.{dns.address}"
+        link = LogicalLink(
+            link_id=link_id,
+            source_asset_id=host_asset.id,
+            target_asset_id=dns_uuid,
+            relationship_type=RelationshipType.CONFIGURED_DNS,
+            source_port_or_interface=dns.interface,
+            confidence=1.0,
+            status="CONFIGURED",
+            evidence=EvidenceRecord(
+                source_protocol=EvidenceProtocol.SYSTEM_RESOLV_CONF if dns.provenance != "mock" else EvidenceProtocol.MOCK,
+                timestamp=now_utc(),
+                confidence=1.0,
+                is_verified_fact=True,
+                attribute="resolver.nameserver",
+                details=json.dumps(
+                    {
+                        "address": dns.address,
+                        "scope": dns.scope,
+                        "provenance": dns.provenance,
+                        "verified_reachability": False,
+                        "is_physical_link": False,
+                    },
+                    sort_keys=True,
+                ),
+            ),
+        )
+        graph.add_link(link)
+
+    return graph
+
+
+def from_network_topology(topo: NetworkTopology) -> AssetGraph:
+    """Convert legacy NetworkTopology into an integrated AssetGraph."""
+    graph = AssetGraph()
+    node_id_to_asset_id: Dict[str, str] = {}
+    for node in topo.nodes:
+        asset = from_topology_node(node)
+        graph.add_asset(asset)
+        node_id_to_asset_id[node.id] = asset.id
+
+    for link in topo.links:
+        src_asset_id = node_id_to_asset_id.get(link.source_id)
+        dst_asset_id = node_id_to_asset_id.get(link.target_id)
+        if not src_asset_id or not dst_asset_id:
+            continue
+
+        try:
+            rel_type = RelationshipType(link.link_type)
+        except ValueError:
+            if link.link_type == "Ethernet":
+                rel_type = RelationshipType.INFERRED_PORT_MAPPING
+            elif link.link_type == "Wireless":
+                rel_type = RelationshipType.INFERRED_WIRELESS_LINK
+            elif link.link_type == "Routed":
+                rel_type = RelationshipType.INFERRED_ROUTED_HOP
+            else:
+                rel_type = RelationshipType.INFERRED_PORT_MAPPING
+
+        logical_link = LogicalLink(
+            link_id=link.id,
+            source_asset_id=src_asset_id,
+            target_asset_id=dst_asset_id,
+            relationship_type=rel_type,
+            confidence=0.9 if "INFERRED" in rel_type.value else 1.0,
+            status=link.status,
+            latency_ms=link.latency_ms,
+            bandwidth_mbps=float(link.speed_mbps),
+        )
+        graph.add_link(logical_link)
+
+    return graph
+
+
+def to_network_topology(graph: AssetGraph) -> NetworkTopology:
+    """Convert an AssetGraph into a legacy NetworkTopology for visualization."""
+    from itsa_network_os.network.topology import NetworkTopology
+
+    nodes = [to_topology_node(asset) for asset in graph.assets.values()]
+    links = [to_topology_link(link, graph=graph) for link in graph.links.values()]
+    return NetworkTopology(nodes=nodes, links=links)

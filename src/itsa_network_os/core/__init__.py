@@ -16,6 +16,16 @@ from itsa_network_os.core.assets import (
     PhysicalPort,
     RelationshipType,
     TelemetryCategory,
+    build_discovery_asset_graph,
+    from_host_interfaces,
+    from_managed_device,
+    from_network_interface,
+    from_network_topology,
+    from_topology_node,
+    to_managed_device,
+    to_network_topology,
+    to_topology_link,
+    to_topology_node,
 )
 
 __all__ = [
@@ -37,4 +47,14 @@ __all__ = [
     "PhysicalPort",
     "RelationshipType",
     "TelemetryCategory",
+    "build_discovery_asset_graph",
+    "from_host_interfaces",
+    "from_managed_device",
+    "from_network_interface",
+    "from_network_topology",
+    "from_topology_node",
+    "to_managed_device",
+    "to_network_topology",
+    "to_topology_link",
+    "to_topology_node",
 ]
