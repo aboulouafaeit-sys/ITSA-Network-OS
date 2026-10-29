@@ -100,6 +100,19 @@ class TopologyWidget(QWidget):  # type: ignore
         toolbar.addWidget(QLabel("<b>Network Topology Visualizer</b> (Interactive Node-Link Canvas)"))
         toolbar.addStretch()
 
+        legend = QLabel(
+            "<span style='color: #3fb950; font-weight: bold;'>— Verified</span> &nbsp; "
+            "<span style='color: #bc8cff; font-weight: bold;'>- - Inferred</span> &nbsp; "
+            "<span style='color: #79c0ff; font-weight: bold;'>··· Configured</span>"
+        )
+        legend.setToolTip(
+            "— Verified: Direct protocol proof (LLDP/Netlink)\n"
+            "- - Inferred: Heuristic correlation (Subnet/Routing)\n"
+            "··· Configured: Statically defined service (Reachability unverified)"
+        )
+        legend.setStyleSheet("font-size: 11px; padding: 2px 8px; background-color: #161b22; border-radius: 4px;")
+        toolbar.addWidget(legend)
+
         zoom_in_btn = QPushButton("+ Zoom In")
         zoom_in_btn.setProperty("class", "SecondaryButton")
         zoom_in_btn.clicked.connect(lambda: self.view.scale(1.2, 1.2))
@@ -150,6 +163,23 @@ class TopologyWidget(QWidget):  # type: ignore
         self.view.resetTransform()
         self.view.centerOn(475, 280)
 
+    @classmethod
+    def _get_link_pen(cls, link_type: str) -> tuple[QPen, str]:
+        """Return (QPen, category_label) based on epistemic relationship semantics."""
+        lt_upper = str(link_type).upper()
+        if "VERIFIED" in lt_upper or lt_upper == "ETHERNET":
+            pen = QPen(QColor("#3fb950"), 2, Qt.PenStyle.SolidLine)
+            return pen, "[Verified]"
+        elif "INFERRED" in lt_upper or lt_upper in ("ROUTED", "WIRELESS"):
+            pen = QPen(QColor("#bc8cff"), 2, Qt.PenStyle.DashLine)
+            return pen, "[Inferred]"
+        elif "CONFIGURED" in lt_upper:
+            pen = QPen(QColor("#79c0ff"), 2, Qt.PenStyle.DotLine)
+            return pen, "[Configured]"
+        else:
+            pen = QPen(QColor("#8b949e"), 1.5, Qt.PenStyle.SolidLine)
+            return pen, "[Standard]"
+
     def _render_graph(self) -> None:
         self.scene.clear()
 
@@ -158,12 +188,12 @@ class TopologyWidget(QWidget):  # type: ignore
         for n in self.topology.nodes:
             node_coords[n.id] = QPointF(n.x, n.y)
 
-        # 1. Draw Links
+        # 1. Draw Links with epistemic styling
         for link in self.topology.links:
             p1 = node_coords.get(link.source_id)
             p2 = node_coords.get(link.target_id)
             if p1 and p2:
-                pen = QPen(QColor("#30363d"), 2, Qt.PenStyle.SolidLine)
+                pen, rel_badge = self._get_link_pen(link.link_type)
                 line = self.scene.addLine(p1.x(), p1.y(), p2.x(), p2.y(), pen)
                 line.setZValue(1)
 
@@ -192,6 +222,7 @@ class TopologyWidget(QWidget):  # type: ignore
             )
             rect_item.setZValue(3)
             rect_item.setFlags(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable)
+            rect_item.setData(0, n.id)
 
             # Status dot
             dot_color = QColor("#3fb950") if n.status == NodeStatus.ONLINE else QColor("#f85149")
@@ -220,11 +251,18 @@ class TopologyWidget(QWidget):  # type: ignore
             return
 
         selected_item = items[0]
+        node_id = selected_item.data(0)
+        if node_id:
+            for node in self.topology.nodes:
+                if node.id == node_id:
+                    self._display_node_details(node)
+                    return
+
+        # Fallback to approximate coordinate matching if item data not set
         rect = selected_item.boundingRect()
         center_x = rect.x() + (rect.width() / 2)
         center_y = rect.y() + (rect.height() / 2)
 
-        # Match node by approximate coordinate
         for node in self.topology.nodes:
             if abs(node.x - center_x) < 5 and abs(node.y - center_y) < 5:
                 self._display_node_details(node)

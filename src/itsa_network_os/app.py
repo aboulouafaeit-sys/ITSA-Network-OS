@@ -29,8 +29,14 @@ from itsa_network_os.network.spf import SPFSimulationResult, SPFSimulatorEngine
 from itsa_network_os.network.vendor_manager import (
     DeviceCategory,
     DiscoveryMode,
+    DiscoveryStatus,
     VendorDiscoveryReport,
     VendorManagerEngine,
+)
+from itsa_network_os.core.assets import (
+    AssetGraph,
+    NetworkAsset,
+    from_managed_device,
 )
 from itsa_network_os.security.auditor import SecurityAuditReport, SecurityAuditor
 from itsa_network_os.security.lab import (
@@ -55,6 +61,8 @@ class Application:
         self.database = DatabaseManager(self.config.database_file)
         self._traffic_monitor = TrafficMonitorEngine(use_mock=self.config.use_mock_network)
         self.scope_guard = ScopeGuard()
+        self._asset_graph: Optional[AssetGraph] = None
+        self._asset_graph_lock = threading.RLock()
         self.logger.debug("Application initialized with configuration: %s", self.config.app_name)
 
     @property
@@ -245,6 +253,70 @@ class Application:
 
         inspector = NetworkInspector(use_mock=use_mock)
         return inspector.list_interfaces()
+
+    def get_host_asset(
+        self,
+        force_live: bool = False,
+        host_system_name: str = "localhost",
+        host_uuid: Optional[str] = None,
+    ) -> NetworkAsset:
+        """Retrieve unified NetworkAsset representing the local host system."""
+        use_mock = self.config.use_mock_network and not force_live
+        inspector = NetworkInspector(use_mock=use_mock)
+        return inspector.get_host_asset(host_system_name=host_system_name, host_uuid=host_uuid)
+
+    def get_asset_graph(
+        self,
+        force_live: bool = False,
+        host_system_name: str = "localhost",
+        host_uuid: Optional[str] = None,
+        include_configured_services: bool = True,
+        refresh: bool = False,
+    ) -> AssetGraph:
+        """Retrieve the in-memory AssetGraph integrating host state, configured services, and observations.
+
+        Maintains a thread-safe cached graph instance on the Application facade to prevent
+        divergent or duplicated state across GUI views. If refresh=True or no graph is cached yet,
+        synthesizes host assets and configured services via NetworkInspector.
+        """
+        with self._asset_graph_lock:
+            if self._asset_graph is None or refresh:
+                use_mock = self.config.use_mock_network and not force_live
+                inspector = NetworkInspector(use_mock=use_mock)
+                self._asset_graph = inspector.get_asset_graph(
+                    host_system_name=host_system_name,
+                    host_uuid=host_uuid,
+                    include_configured_services=include_configured_services,
+                )
+                if use_mock:
+                    report = VendorManagerEngine.discover_devices(mode=DiscoveryMode.MOCK)
+                    for dev in report.devices:
+                        asset = from_managed_device(dev)
+                        if asset.id not in self._asset_graph.assets:
+                            self._asset_graph.add_asset(asset)
+            return self._asset_graph
+
+    def update_asset_graph(self, asset: NetworkAsset) -> None:
+        """Add or update an asset in the application's central AssetGraph."""
+        with self._asset_graph_lock:
+            if self._asset_graph is None:
+                self.get_asset_graph()
+            self._asset_graph.add_asset(asset)
+
+    def integrate_discovery_report(self, report: VendorDiscoveryReport) -> int:
+        """Ingest devices from a VendorDiscoveryReport into the central AssetGraph.
+
+        Returns count of newly added or updated assets.
+        """
+        added = 0
+        with self._asset_graph_lock:
+            if self._asset_graph is None:
+                self.get_asset_graph()
+            for dev in report.devices:
+                asset = from_managed_device(dev)
+                self._asset_graph.add_asset(asset)
+                added += 1
+        return added
 
     def diagnose_dns(
         self, host: str, force_live: bool = False, interface: Optional[str] = None
@@ -593,7 +665,7 @@ class Application:
             timeout,
             interface,
         )
-        return VendorManagerEngine.discover_devices(
+        report = VendorManagerEngine.discover_devices(
             category_filter=cat_enum,
             mode=norm_mode,
             timeout=timeout,
@@ -603,4 +675,7 @@ class Application:
             onvif_socket_factory=onvif_socket_factory,
             stop_event=stop_event,
         )
+        if report.status in (DiscoveryStatus.COMPLETED, DiscoveryStatus.PARTIAL):
+            self.integrate_discovery_report(report)
+        return report
 

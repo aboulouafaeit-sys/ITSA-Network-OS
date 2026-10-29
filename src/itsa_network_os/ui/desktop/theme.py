@@ -162,4 +162,49 @@ QScrollBar::handle:vertical {
 QScrollBar::handle:vertical:hover {
     background-color: #8b949e;
 }
+
+/* Shell Header & Status Bar */
+QFrame#ShellHeader {
+    background-color: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 6px 16px;
+}
+
+QStatusBar {
+    background-color: #161b22;
+    color: #8b949e;
+    border-top: 1px solid #30363d;
+    font-size: 11px;
+}
+
+/* Tabs */
+QTabWidget::pane {
+    border: 1px solid #30363d;
+    background-color: #0d1117;
+    border-radius: 6px;
+}
+
+QTabBar::tab {
+    background-color: #161b22;
+    color: #8b949e;
+    border: 1px solid #30363d;
+    border-bottom: none;
+    padding: 8px 16px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    margin-right: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+QTabBar::tab:selected {
+    background-color: #0d1117;
+    color: #58a6ff;
+    border-top: 2px solid #1f6feb;
+}
+
+QTabBar::tab:hover:!selected {
+    background-color: #21262d;
+    color: #f0f6fc;
+}
 """
