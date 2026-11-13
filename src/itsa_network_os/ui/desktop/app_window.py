@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import sys
-from typing import Optional
+from pathlib import Path
+from typing import Any, Optional
 
 try:
     from PySide6.QtCore import Qt
-    from PySide6.QtGui import QFont, QIcon
+    from PySide6.QtGui import QFont, QIcon, QPixmap
     from PySide6.QtWidgets import (
+        QDialog,
         QFrame,
         QHBoxLayout,
         QLabel,
@@ -60,6 +62,12 @@ class MainWindow(QMainWindow):  # type: ignore
         self.setWindowTitle(f"{__app_name__} — Desktop Dashboard v{__version__}")
         self.resize(1180, 780)
         self.setMinimumSize(900, 600)
+
+        # Set official application icon
+        assets_dir = Path(__file__).resolve().parent / "assets"
+        icon_path = assets_dir / "itsa-app-icon-64.png"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         self._init_ui()
 
@@ -242,11 +250,25 @@ class MainWindow(QMainWindow):  # type: ignore
         h_layout.setContentsMargins(16, 8, 16, 8)
         h_layout.setSpacing(16)
 
-        # Brand / Title
+        # Brand Logo + Title
+        brand_box = QWidget()
+        brand_layout = QHBoxLayout(brand_box)
+        brand_layout.setContentsMargins(0, 0, 0, 0)
+        brand_layout.setSpacing(8)
+
+        assets_dir = Path(__file__).resolve().parent / "assets"
+        logo_path = assets_dir / "itsa-symbol-32.png"
+        if logo_path.exists():
+            logo_label = QLabel()
+            logo_pix = QPixmap(str(logo_path))
+            logo_label.setPixmap(logo_pix.scaled(24, 24, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            brand_layout.addWidget(logo_label)
+
         brand_label = QLabel(f"<b>{__app_name__}</b> <span style='color: #8b949e;'>v{__version__}</span>")
         brand_label.setFont(QFont("Segoe UI", 13))
         brand_label.setStyleSheet("color: #58a6ff;")
-        h_layout.addWidget(brand_label)
+        brand_layout.addWidget(brand_label)
+        h_layout.addWidget(brand_box)
 
         # Global Asset Search Bar
         self.global_search_input = QLineEdit()
@@ -281,7 +303,74 @@ class MainWindow(QMainWindow):  # type: ignore
         )
         h_layout.addWidget(self.health_badge)
 
+        # About dialog button
+        self.about_btn = QPushButton("ℹ️ About")
+        self.about_btn.setObjectName("AboutButton")
+        self.about_btn.setToolTip("View ITSA Network OS architecture, license, and brand specifications.")
+        self.about_btn.setStyleSheet(
+            "QPushButton#AboutButton { background-color: #161b22; color: #c9d1d9; border: 1px solid #30363d; "
+            "border-radius: 4px; padding: 4px 10px; font-size: 11px; font-weight: bold; } "
+            "QPushButton#AboutButton:hover { background-color: #21262d; border-color: #58a6ff; color: #ffffff; }"
+        )
+        self.about_btn.clicked.connect(self._show_about_dialog)
+        h_layout.addWidget(self.about_btn)
+
         return header_frame
+
+    def _show_about_dialog(self) -> None:
+        """Display official branded About Dialog with system architecture, version, and license."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"About {__app_name__}")
+        dialog.setFixedSize(540, 430)
+        dialog.setStyleSheet("QDialog { background-color: #0d1117; color: #c9d1d9; }")
+
+        layout = QVBoxLayout(dialog)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(12)
+
+        assets_dir = Path(__file__).resolve().parent / "assets"
+        icon_path = assets_dir / "itsa-app-icon-64.png"
+        if icon_path.exists():
+            icon_lbl = QLabel()
+            icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            icon_lbl.setPixmap(QPixmap(str(icon_path)).scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            layout.addWidget(icon_lbl)
+
+        title_lbl = QLabel(f"<h2 style='margin:0; color:#58a6ff; text-align:center;'>{__app_name__}</h2>")
+        title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title_lbl)
+
+        ver_lbl = QLabel(f"<span style='color:#8b949e; font-weight:bold;'>Version {__version__} — Operational Core</span>")
+        ver_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(ver_lbl)
+
+        desc_lbl = QLabel(
+            "<p style='color:#c9d1d9; text-align:center; font-size:12px; margin:4px 0;'>"
+            "A safe, modular network engineering and cybersecurity diagnostic platform with "
+            "strict least-privilege guarantees and host operating system invariance."
+            "</p>"
+        )
+        desc_lbl.setWordWrap(True)
+        layout.addWidget(desc_lbl)
+
+        info_frame = QFrame()
+        info_frame.setStyleSheet("background-color: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 10px;")
+        info_layout = QVBoxLayout(info_frame)
+        info_layout.setSpacing(4)
+        info_layout.addWidget(QLabel("<b>License:</b> MIT License (Permissive commercial & open use)"))
+        info_layout.addWidget(QLabel("<b>Platform:</b> Debian 13 (Trixie) / Linux / POSIX"))
+        info_layout.addWidget(QLabel("<b>Security Scope:</b> Level 1/2 Read-Only Diagnostic Enclosure"))
+        info_layout.addWidget(QLabel("<b>Repository:</b> github.com/aboulouafaeit-sys/ITSA-Network-OS"))
+        layout.addWidget(info_frame)
+
+        close_btn = QPushButton("Close")
+        close_btn.setStyleSheet(
+            "background-color: #1f6feb; color: #ffffff; border-radius: 6px; padding: 8px 18px; font-weight: bold;"
+        )
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        dialog.exec()
 
     def _on_global_search_changed(self, text: str) -> None:
         """Forward global search query to asset inventory view and switch view."""

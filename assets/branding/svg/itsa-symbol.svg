@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Gradients for depth and optical precision -->
+    <linearGradient id="topFacetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D2FF" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#1F6FEB" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="rightFacetGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1F6FEB" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#58A6FF" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="leftFacetGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2EA043" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#00D2FF" stop-opacity="0.75"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Telemetry Transit Ring / Boundary Geometry -->
+  <g id="telemetry-bus" stroke="#30363D" stroke-width="4" fill="none" opacity="0.6">
+    <path d="M 256 56 L 429 156 L 429 356 L 256 456 L 83 356 L 83 156 Z" stroke-dasharray="14 10"/>
+  </g>
+
+  <!-- Hexagonal Faceted Lattice Core -->
+  <g id="lattice-facets">
+    <!-- Top Ingress Telemetry Facet -->
+    <path d="M 256 86 L 405 172 L 268 250 L 120 166 Z" 
+          fill="url(#topFacetGrad)" />
+
+    <!-- Right Switching Engine Facet -->
+    <path d="M 405 190 L 405 342 L 268 422 L 268 268 Z" 
+          fill="url(#rightFacetGrad)" />
+
+    <!-- Left Security & Verification Facet -->
+    <path d="M 120 184 L 244 256 L 244 422 L 120 342 Z" 
+          fill="url(#leftFacetGrad)" />
+  </g>
+
+  <!-- Central Dynamic Kernel Core (Isometric Diamond) -->
+  <g id="kernel-core">
+    <polygon points="256,220 288,238 288,274 256,292 224,274 224,238" 
+             fill="#00D2FF" opacity="0.95"/>
+    <polygon points="256,232 276,244 276,268 256,280 236,268 236,244" 
+             fill="#0D1117"/>
+  </g>
+
+  <!-- Precision Peripheral Node Terminals -->
+  <g id="peripheral-nodes">
+    <!-- Top Node -->
+    <circle cx="256" cy="56" r="14" fill="#58A6FF"/>
+    <circle cx="256" cy="56" r="6" fill="#0D1117"/>
+
+    <!-- Upper Right Node -->
+    <circle cx="429" cy="156" r="14" fill="#58A6FF"/>
+    <circle cx="429" cy="156" r="6" fill="#0D1117"/>
+
+    <!-- Lower Right Node -->
+    <circle cx="429" cy="356" r="14" fill="#58A6FF"/>
+    <circle cx="429" cy="356" r="6" fill="#0D1117"/>
+
+    <!-- Bottom Node -->
+    <circle cx="256" cy="456" r="14" fill="#58A6FF"/>
+    <circle cx="256" cy="456" r="6" fill="#0D1117"/>
+
+    <!-- Lower Left Node -->
+    <circle cx="83" cy="356" r="14" fill="#58A6FF"/>
+    <circle cx="83" cy="356" r="6" fill="#0D1117"/>
+
+    <!-- Upper Left Node -->
+    <circle cx="83" cy="156" r="14" fill="#58A6FF"/>
+    <circle cx="83" cy="156" r="6" fill="#0D1117"/>
+  </g>
+</svg>

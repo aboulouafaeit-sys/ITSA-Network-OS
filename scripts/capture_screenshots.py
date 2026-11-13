@@ -11,8 +11,8 @@ from itsa_network_os.core.config import AppConfig
 from itsa_network_os.ui.desktop.app_window import MainWindow
 from itsa_network_os.ui.desktop.theme import DARK_THEME_QSS
 
-ARTIFACT_DIR = Path(r"C:\Users\MPront\.gemini\antigravity-ide\brain\b27b0b7f-c6e7-4985-b710-d1e7c00bdb72")
 DOCS_IMG_DIR = Path(__file__).resolve().parent.parent / "docs" / "images"
+ARTIFACT_DIR = Path(os.environ.get("ARTIFACT_DIR", "/tmp"))
 
 DOCS_IMG_DIR.mkdir(parents=True, exist_ok=True)
 ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
